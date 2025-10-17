@@ -1,0 +1,67 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "/api/v1/releases/649"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "fixedDelayMilliseconds": 200,
+    "jsonBody": {
+      "data": {
+        "id": 649,
+        "type": "releases",
+        "attributes": {
+          "name": "JBEAP Text-Only",
+          "description": "Text-Only Advisories for EAP",
+          "type": "Async",
+          "allow_pkg_dupes": false,
+          "ship_date": null,
+          "is_active": true,
+          "enabled": true,
+          "enable_batching": false,
+          "is_async": true,
+          "is_deferred": false,
+          "allow_shadow": false,
+          "allow_blocker": false,
+          "allow_exception": false,
+          "limit_bugs_by_product": false,
+          "supports_component_acl": false,
+          "blocker_flags": [],
+          "internal_target_release": null,
+          "zstream_target_release": null,
+          "notify_bugzilla_about_release_status": false,
+          "is_silent": false,
+          "pp_start_date": null,
+          "pp_end_date": null,
+          "forbid_container_advisories": false
+        },
+        "relationships": {
+          "brew_tags": [],
+          "product": {
+            "id": 41,
+            "short_name": "JBEAP"
+          },
+          "product_versions": [
+            {
+              "id": 621,
+              "name": "JBEAP Text-Only"
+            },
+            {
+              "id": 1321,
+              "name": "JBEAP CD Text-Only"
+            },
+            {
+              "id": 1322,
+              "name": "JBEAP XP Text-Only"
+            }
+          ],
+          "state_machine_rule_set": null,
+          "program_manager": null
+        }
+      }
+    }
+  }
+}

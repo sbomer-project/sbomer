@@ -122,6 +122,9 @@ public abstract class AbstractAdjuster implements Adjuster {
             }
         }
 
+        // If its generic purl then try and aquire a version from the filename
+        SbomUtils.setPurlVersionFromGeneric(metadataComponent);
+
         // Set main component
         bom.getMetadata().setComponent(metadataComponent);
 
