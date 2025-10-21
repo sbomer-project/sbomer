@@ -25,6 +25,7 @@ public class Constants {
 
     public static final String SBOMER_NAME = "SBOMer";
     public static final String SBOMER_LICENSE_ID = "Apache-2.0";
+    public static final String SBOMER_LICENSE_URL = "https://www.apache.org/licenses/LICENSE-2.0.html";
     public static final String SBOMER_GIT_URL = "git@github.com:project-ncl/sbomer.git";
     public static final String SBOMER_WEBSITE = "https://github.com/project-ncl/sbomer";
 
