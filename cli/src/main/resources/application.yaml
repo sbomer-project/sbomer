@@ -28,6 +28,8 @@ quarkus:
     enabled: false
 
   rest-client:
+    "cachito":
+      url: "https://${sbomer.cachito.host}"
     "gerrit":
       url: "https://${sbomer.gerrit.host}"
     "gitlab":

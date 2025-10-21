@@ -17,6 +17,8 @@
  */
 package org.jboss.sbomer.cli.feature.sbom.command.process;
 
+import org.eclipse.microprofile.rest.client.inject.RestClient;
+import org.jboss.sbomer.cli.feature.sbom.client.CachitoClient;
 import org.jboss.sbomer.cli.feature.sbom.processor.DefaultProcessor;
 import org.jboss.sbomer.cli.feature.sbom.service.KojiService;
 import org.jboss.sbomer.core.pnc.PncService;
@@ -37,12 +39,16 @@ public class DefaultProcessorProducer {
     @Inject
     KojiService kojiService;
 
+    @Inject
+    @RestClient
+    CachitoClient cachitoClient;
+
     @Produces
     @DefaultBean
     @ApplicationScoped
     public DefaultProcessor produceDefaultPRocessor() {
         log.debug("Creating new Default Processor bean...");
-        return new DefaultProcessor(pncService, kojiService);
+        return new DefaultProcessor(pncService, kojiService, cachitoClient);
     }
 
 }

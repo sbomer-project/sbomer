@@ -64,6 +64,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
 import org.commonjava.atlas.maven.ident.ref.SimpleArtifactRef;
 import org.commonjava.atlas.npm.ident.ref.NpmPackageRef;
 import org.cyclonedx.Version;
@@ -71,6 +72,7 @@ import org.cyclonedx.exception.GeneratorException;
 import org.cyclonedx.exception.ParseException;
 import org.cyclonedx.generators.BomGeneratorFactory;
 import org.cyclonedx.generators.json.BomJsonGenerator;
+import org.cyclonedx.model.Ancestors;
 import org.cyclonedx.model.Bom;
 import org.cyclonedx.model.Commit;
 import org.cyclonedx.model.Component;
@@ -1741,5 +1743,20 @@ public class SbomUtils {
             }
             components.addAll(mergedComponents.values());
         }
+    }
+
+    public static void addPedigreeRemoteSource(Component component, String repo, String ref) {
+        if (StringUtils.isAllEmpty(repo, ref)) {
+            return;
+        }
+
+        Component newComponent = new Component();
+        newComponent.setPurl(repo); // FIXME: Convert this to an actual purl after 336
+        newComponent.setVersion(ref);
+        Pedigree pedigree = component.getPedigree() != null ? component.getPedigree() : new Pedigree();
+        Ancestors ancestors = pedigree.getAncestors() != null ? pedigree.getAncestors() : new Ancestors();
+        ancestors.addComponent(newComponent);
+        pedigree.setAncestors(ancestors);
+        component.setPedigree(pedigree);
     }
 }

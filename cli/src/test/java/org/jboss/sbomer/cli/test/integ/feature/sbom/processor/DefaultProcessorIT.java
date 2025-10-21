@@ -12,6 +12,7 @@ import org.cyclonedx.model.ExternalReference.Type;
 import org.cyclonedx.model.Hash;
 import org.cyclonedx.model.Hash.Algorithm;
 import org.cyclonedx.model.Metadata;
+import org.jboss.sbomer.cli.feature.sbom.client.CachitoClient;
 import org.jboss.sbomer.cli.feature.sbom.processor.DefaultProcessor;
 import org.jboss.sbomer.cli.feature.sbom.service.KojiService;
 import org.jboss.sbomer.cli.test.utils.PncWireMock;
@@ -36,7 +37,10 @@ class DefaultProcessorIT {
 
     @BeforeEach
     void init() {
-        this.defaultProcessor = new DefaultProcessor(pncService, Mockito.mock(KojiService.class));
+        this.defaultProcessor = new DefaultProcessor(
+                pncService,
+                Mockito.mock(KojiService.class),
+                Mockito.mock(CachitoClient.class));
     }
 
     @Test
