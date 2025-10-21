@@ -264,6 +264,9 @@ public class ReleaseTextOnlyAdvisoryEventsListener extends AbstractEventsListene
         sbomRootComponent.setLicenses(manifestMainComponent.getLicenses());
         SbomUtils.setEvidenceIdentities(sbomRootComponent, Set.of(evidencePurl), Field.PURL);
 
+        // Try and aquire the version from the purl(s)
+        SbomUtils.setPurlVersionFromGeneric(sbomRootComponent);
+
         return sbomRootComponent;
     }
 

@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -46,6 +47,7 @@ import org.jboss.sbomer.core.dto.v1beta1.V1Beta1RequestRecord;
 import org.jboss.sbomer.core.features.sbom.Constants;
 import org.jboss.sbomer.core.features.sbom.enums.GenerationRequestType;
 import org.jboss.sbomer.core.features.sbom.enums.RequestEventStatus;
+import org.jboss.sbomer.core.features.sbom.utils.GenericPurlWrapperUtil;
 import org.jboss.sbomer.core.features.sbom.utils.ObjectMapperProvider;
 import org.jboss.sbomer.core.features.sbom.utils.SbomUtils;
 import org.jboss.sbomer.core.test.TestResources;
@@ -85,6 +87,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.github.packageurl.MalformedPackageURLException;
 
 import groovy.util.logging.Slf4j;
 import io.quarkus.test.junit.QuarkusTest;
@@ -643,6 +646,14 @@ class ReleaseAdvisoryEventsListenerTest {
                     operationManifestBom.getMetadata().getComponent(),
                     Map.of("repository_url", Constants.MRRC_URL),
                     false);
+
+            GenericPurlWrapperUtil gp = null;
+            try {
+                gp = new GenericPurlWrapperUtil(operationExpectedPurl);
+            } catch (MalformedPackageURLException e) {
+                fail("Failed to create GenericPurlWrapperUtil");
+            }
+            String operationExpectedPurlVersioned = gp.getVersionedPurl().canonicalize();
             validateComponent(
                     bom.getComponents().get(1),
                     Component.Type.FILE,
@@ -651,7 +662,7 @@ class ReleaseAdvisoryEventsListenerTest {
                     "sha256:1c2a89f755d5fdddef08c9f6f3b89e1e15cfa6d316055327bfe3f806acdbfca1",
                     "pkg:generic/jboss-unified-push-1.0.0.Beta1-maven-repository.zip?checksum=sha256%3A1c2a89f755d5fdddef08c9f6f3b89e1e15cfa6d316055327bfe3f806acdbfca1",
                     "pkg:generic/jboss-unified-push-1.0.0.Beta1-maven-repository.zip?checksum=sha256%3A1c2a89f755d5fdddef08c9f6f3b89e1e15cfa6d316055327bfe3f806acdbfca1",
-                    List.of(operationExpectedPurl),
+                    List.of(operationExpectedPurl, operationExpectedPurlVersioned),
                     Field.PURL);
 
             validateDependencies(
@@ -697,6 +708,7 @@ class ReleaseAdvisoryEventsListenerTest {
             List<String> allPurls = List.of(
                     "pkg:generic/jboss-unified-push-1.0.0.Beta1-maven-repository.zip?checksum=sha256%3A1c2a89f755d5fdddef08c9f6f3b89e1e15cfa6d316055327bfe3f806acdbfca1",
                     "pkg:generic/jboss-unified-push-1.0.0.Beta1-maven-repository.zip?checksum=sha256%3A1c2a89f755d5fdddef08c9f6f3b89e1e15cfa6d316055327bfe3f806acdbfca1&repository_url=https%3A%2F%2Fmaven.repository.redhat.com%2Fga%2F",
+                    "pkg:generic/jboss-unified-push-eta1-maven-repository.zip@1.0.0.B?checksum=sha256%3A1c2a89f755d5fdddef08c9f6f3b89e1e15cfa6d316055327bfe3f806acdbfca1&repository_url=https%3A%2F%2Fmaven.repository.redhat.com%2Fga%2F",
                     "pkg:maven/com.redhat.quarkus.platform/quarkus-bom@3.2.11.Final-redhat-00001?repository_url=https%3A%2F%2Fmaven.repository.redhat.com%2Fga%2F&type=pom",
                     "pkg:maven/com.redhat.quarkus.platform/quarkus-bom@3.2.11.Final-redhat-00001?type=pom");
 
