@@ -53,10 +53,9 @@ import org.cyclonedx.model.Metadata;
 import org.cyclonedx.model.OrganizationalEntity;
 import org.cyclonedx.model.Property;
 import org.cyclonedx.model.Service;
-import org.cyclonedx.model.metadata.ToolInformation;
-import org.cyclonedx.model.component.evidence.Method.Technique;
 import org.cyclonedx.model.component.evidence.Identity;
 import org.cyclonedx.model.component.evidence.Identity.Field;
+import org.cyclonedx.model.metadata.ToolInformation;
 import org.jboss.pnc.dto.Build;
 import org.jboss.pnc.dto.BuildConfigurationRevision;
 import org.jboss.pnc.dto.Environment;
@@ -564,6 +563,7 @@ class SbomUtilsTest {
         assertEquals(1, urls.size());
         assertEquals("https://www.redhat.com", urls.get(0));
     }
+
     @ParameterizedTest(name = "{index} => filename=''{0}'', expectedPurl=''{1}''")
     @CsvSource({
             // Input purl //Expected PURL
