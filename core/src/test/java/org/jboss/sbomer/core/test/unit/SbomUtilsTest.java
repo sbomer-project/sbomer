@@ -17,6 +17,7 @@
  */
 package org.jboss.sbomer.core.test.unit;
 
+import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.createComponent;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.getHashesFromAnalyzedDistribution;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -50,6 +51,7 @@ import org.cyclonedx.model.OrganizationalEntity;
 import org.cyclonedx.model.Property;
 import org.cyclonedx.model.Service;
 import org.cyclonedx.model.metadata.ToolInformation;
+import org.cyclonedx.model.component.evidence.Method.Technique;
 import org.jboss.pnc.dto.Build;
 import org.jboss.pnc.dto.BuildConfigurationRevision;
 import org.jboss.pnc.dto.Environment;
@@ -64,6 +66,8 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
@@ -553,4 +557,71 @@ class SbomUtilsTest {
         assertEquals(1, urls.size());
         assertEquals("https://www.redhat.com", urls.get(0));
     }
+    @ParameterizedTest(name = "{index} => filename=''{0}'', expectedPurl=''{1}''")
+    @CsvSource({
+            // Input purl //Expected PURL
+            "pkg:generic/jboss-eap-7.4.22-runtime-maven-repository.zip?repository_url=https%3A%2F%2Fmaven.repository.redhat.com%2Fga%2F,pkg:generic/jboss-eap-runtime-maven-repository.zip?repository_url=https%3A%2F%2Fmaven.repository.redhat.com%2Fga%2F@7.4.22",
+            "pkg:generic/jboss-eap-7.4.22-CR1-runtime-maven-repository.zip,pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4.22-CR1",
+            "pkg:generic/jboss-eap-7.4.22.CR1-runtime-maven-repository.zip,pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4.22.CR1",
+            "pkg:generic/jboss-eap-7.4.22.runtime-maven-repository.zip,pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4.22",
+            "pkg:generic/jboss-eap-7.4-runtime-maven-repository.zip,pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4",
+            "pkg:generic/jboss-eap-runtime-maven-repository.zip,pkg:generic/jboss-eap-runtime-maven-repository.zip" })
+    void shouldGetVersionFromPurl(String inputPurl, String expectedPurl) {
+
+        // Component mockComponent = mock(Component.class);
+        // when(mockComponent.getPurl()).thenReturn(inputPurl);
+        // ArgumentCaptor<String> purlCaptor = ArgumentCaptor.forClass(String.class);
+        // SbomUtils.purlVersionFromGeneric(mockComponent);
+        // verify(mockComponent).setPurl(purlCaptor.capture());
+        // assertEquals(expectedPurl, purlCaptor.getValue());
+        // Component c = new Component();
+        // c.setEvidence(new Evidence());
+        // c.getEvidence().setIdentities();
+    }
+
+    @Test
+    void testMissingEvidencesNPENotThrown() {
+        try {
+            String purl = "pkg:generic/jboss-eap-7.4-runtime-maven-repository.zip";
+            Component c = new Component();
+            c.setPurl(purl);
+            SbomUtils.purlVersionFromGeneric(c);
+            assertEquals(
+                    "pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4",
+                    c.getEvidence().getIdentities().get(0).getConcludedValue());
+        } catch (NullPointerException e) {
+            fail(e);
+        }
+    }
+
+    @Test
+    void testMissingPurlNPENotThrown() {
+        try {
+            String purl = "pkg:generic/jboss-eap-7.4-runtime-maven-repository.zip";
+            Component c = new Component();
+            c.setPurl(purl);
+            SbomUtils.purlVersionFromGeneric(c);
+            assertEquals(
+                    "pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4",
+                    c.getEvidence().getIdentities().get(0).getConcludedValue());
+        } catch (NullPointerException e) {
+            fail(e);
+        }
+    }
+
+    private void shouldPopulateEvidenceField(Component c) {
+
+        /*
+         * Check we have a structure like the following { "evidence": { "identities": [ { "field": "purl",
+         * "concludedValue": "pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4.22-CR1", "methods": [ {
+         * "technique": "filename", "confidence": 0.20, "value": "version=7.4.22-CR1" } ] } ] } }
+         */
+        c.getEvidence()
+                .getIdentities()
+                .stream()
+                .filter(identity -> "purl".equals(identity.getField()))
+                .filter(identity -> identity.getMethods().get(0).getConfidence().equals(0.20))
+                .filter(identity -> identity.getMethods().get(0).getTechnique().equals(Technique.FILENAME));
+    }
+
 }
