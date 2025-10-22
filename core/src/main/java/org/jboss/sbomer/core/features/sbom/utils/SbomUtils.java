@@ -1765,20 +1765,23 @@ public class SbomUtils {
     /*
      * Most of this functionality lives in GenericPurlWrapperUtil
      */
-    public static void purlVersionFromGeneric(Component c) {
+    public static void setPurlVersionFromGeneric(Component c) {
         // Grab toplevel and evidence purls
-        Optional<PackageURL> topLevelPurl = Optional.empty();
-        try {
-            topLevelPurl = Optional.of(new PackageURL(c.getPurl()));
-        } catch (MalformedPackageURLException e) {
-            log.warn("component.purl:{} is invalid", c.getPurl());
-        }
+        final Optional<PackageURL> topLevelPurl = Optional.ofNullable(c.getPurl()).map(purl -> {
+            try {
+                return new PackageURL(purl);
+            } catch (MalformedPackageURLException e) {
+                // This should never be reached based on your assumption.
+                // If it is, it will crash the current thread.
+                throw new RuntimeException("Impossible exception thrown for PURL: " + purl, e);
+            }
+        });
 
-        Optional<PackageURL> evidencePurl = Optional.ofNullable(c.getEvidence())
+        final Optional<PackageURL> evidencePurl = Optional.ofNullable(c.getEvidence())
                 .map(Evidence::getIdentities)
                 .orElse(Collections.emptyList())
                 .stream()
-                .filter(identity -> "purl".equals(identity.getField()))
+                .filter(identity -> Field.PURL.equals(identity.getField()))
                 .map(Identity::getConcludedValue)
                 .map(purlString -> {
                     if (purlString == null || purlString.isBlank())
@@ -1791,7 +1794,7 @@ public class SbomUtils {
                 })
                 .filter(Objects::nonNull)
                 .filter(purl -> "generic".equals(purl.getType()))
-                .filter(purl -> purl.getVersion() != null && !purl.getVersion().isBlank())
+                .filter(purl -> purl.getVersion() == null || purl.getVersion().isBlank())
                 .findFirst();
 
         // We cant't do anything here, early exit
@@ -1800,15 +1803,31 @@ public class SbomUtils {
             return;
         }
 
-        PackageURL purlToModify = evidencePurl.orElse(topLevelPurl.get());
-        // Which purl is longer, hopefully more correct?
-        if (topLevelPurl.get().canonicalize().length() > purlToModify.canonicalize().length())
-            purlToModify = topLevelPurl.get();
+        Optional<PackageURL> purlToModify;
+
+        if (evidencePurl.isPresent() && topLevelPurl.isPresent()) {
+            PackageURL evidence = evidencePurl.get();
+            PackageURL topLevel = topLevelPurl.get();
+
+            if (topLevel.canonicalize().length() > evidence.canonicalize().length()) {
+                purlToModify = Optional.of(topLevel);
+            } else {
+                purlToModify = Optional.of(evidence);
+            }
+        } else {
+            purlToModify = evidencePurl.or(() -> topLevelPurl);
+        }
+
+        if (purlToModify.isEmpty()) {
+            return;
+        }
 
         // Find and replace in evidence.identities
         try {
-            GenericPurlWrapperUtil newEvidencePurl = new GenericPurlWrapperUtil(purlToModify);
-
+            GenericPurlWrapperUtil newEvidencePurl = new GenericPurlWrapperUtil(purlToModify.get());
+            // We couldn't get a version, dont do anything
+            if (newEvidencePurl.getVersionedPurl() == null)
+                return;
             // Build our new Idententy Object and either append or replace
             appendOrReplaceIdentity(c, newEvidencePurl.getPackageURL(), newEvidencePurl.getAsIdentity(), true);
         } catch (MalformedPackageURLException e) {

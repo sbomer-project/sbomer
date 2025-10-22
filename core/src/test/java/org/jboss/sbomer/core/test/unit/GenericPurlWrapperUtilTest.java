@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.cyclonedx.model.component.evidence.Identity;
 import org.cyclonedx.model.component.evidence.Method;
@@ -16,10 +17,33 @@ import org.jboss.sbomer.core.features.sbom.utils.GenericPurlWrapperUtil;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.packageurl.MalformedPackageURLException;
 import com.github.packageurl.PackageURL;
 
 class GenericPurlWrapperUtilTest {
+
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    private static class Diff {
+        public String from;
+        public String to;
+
+        // A no-arg constructor is also needed by Jackson for deserialization
+        public Diff() {
+        }
+
+        public String getFrom() {
+            return from;
+        }
+
+        public String getTo() {
+            return to;
+        }
+    }
 
     @Test
     @DisplayName("Constructor should succeed for a valid versionless generic PURL")
@@ -160,27 +184,31 @@ class GenericPurlWrapperUtilTest {
         Method method = methods.get(0);
         assertEquals(Technique.FILENAME, method.getTechnique());
         assertEquals(wrapper.getConfidenceScore(), method.getConfidence());
-        assertTrue(method.getValue().contains("version=from=nullto=4.5.6"));
+        assertTrue(method.getValue().contains("\"version\":{\"from\":null,\"to\":\"4.5.6\"}"));
     }
 
     @Test
     @DisplayName("findDifference should identify version and name changes")
-    void testFindDifferenceIdentifiesChanges() throws MalformedPackageURLException {
+    void testFindDifferenceIdentifiesChanges()
+            throws MalformedPackageURLException, JsonMappingException, JsonProcessingException {
         GenericPurlWrapperUtil wrapper = new GenericPurlWrapperUtil("pkg:generic/my-lib-1.0.0");
         PackageURL versionedPurl = wrapper.getVersionedPurl();
-        Map<String, String> diff = wrapper.findDifference(versionedPurl);
-
-        assertEquals(2, diff.size());
-        assertEquals("from=my-lib-1.0.0to=my-lib", diff.get("name"));
-        assertEquals("from=nullto=1.0.0", diff.get("version"));
+        String diff = wrapper.findDifferenceAsString(versionedPurl);
+        Map<String, Diff> diffMap = objectMapper.readValue(diff, new TypeReference<>() {
+        });
+        assertEquals(2, diffMap.size());
+        assertEquals(diffMap.keySet(), Set.of("name", "version"));
+        assertEquals(
+                "{\"name\":{\"from\":\"my-lib-1.0.0\",\"to\":\"my-lib\"},\"version\":{\"from\":null,\"to\":\"1.0.0\"}}",
+                diff);
     }
 
     @Test
     @DisplayName("findDifference should return an empty map for identical PURLs")
     void testFindDifferenceIdenticalPurlsReturnsEmptyMap() throws MalformedPackageURLException {
         GenericPurlWrapperUtil wrapper = new GenericPurlWrapperUtil("pkg:generic/no-change");
-        Map<String, String> diff = wrapper.findDifference(wrapper.getPackageURL());
+        String diff = wrapper.findDifferenceAsString(wrapper.getPackageURL());
 
-        assertTrue(diff.isEmpty());
+        assertEquals("", diff);
     }
 }

@@ -36,6 +36,8 @@ import org.cyclonedx.model.component.evidence.Identity.Field;
 import org.cyclonedx.model.component.evidence.Method;
 import org.cyclonedx.model.component.evidence.Method.Technique;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.packageurl.MalformedPackageURLException;
 import com.github.packageurl.PackageURL;
 
@@ -45,12 +47,38 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class GenericPurlWrapperUtil {
 
+    /*
+     * Help with Jackson Nothing actually uses this yet, the contents of the evidence.identiy.methods.value field are
+     * not well documented and not a great deal of examples See
+     * https://cyclonedx.org/guides/OWASP_CycloneDX-Authoritative-Guide-to-SBOM-en.pdf
+     *
+     * Taking my best guess here for something useful
+     */
+    private static class ValueChanges {
+        private final String from;
+        private final String to;
+
+        public ValueChanges(String from, String to) {
+            this.from = from;
+            this.to = to;
+        }
+
+        public String getFrom() {
+            return from;
+        }
+
+        public String getTo() {
+            return to;
+        }
+    }
+
     @Getter
     private final PackageURL packageURL;
 
     @Getter
     private final double confidenceScore;
 
+    private static final ObjectMapper objectMapper = new ObjectMapper();
     /*
      * Our Regex that covers most the patterns we see on the RCM release area
      */
@@ -304,13 +332,13 @@ public class GenericPurlWrapperUtil {
         Method m = new Method();
         m.setTechnique(Technique.FILENAME);
         m.setConfidence(getConfidenceScore());
-        m.setValue("%s".formatted(this.findDifference(this.getVersionedPurl())));
+        m.setValue(this.findDifferenceAsString(this.getVersionedPurl()));
         i.setMethods(List.of(m));
         i.setConfidence(i.getMethods().stream().mapToDouble(Method::getConfidence).max().orElse(0.0));
         return i;
     }
 
-    private static Map<String, String> findDifference(PackageURL a, PackageURL b) {
+    private static Map<String, ValueChanges> findDifference(PackageURL a, PackageURL b) {
         Map<String, String> purlAMap = new HashMap<>();
         purlAMap.put("type", a.getType());
         purlAMap.put("namespace", a.getNamespace());
@@ -334,13 +362,25 @@ public class GenericPurlWrapperUtil {
 
         return allKeys.stream()
                 .filter(key -> !Objects.equals(purlAMap.get(key), purlBMap.get(key)))
-                .collect(
-                        Collectors.toMap(
-                                key -> key,
-                                key -> String.format("from=%sto=%s", purlAMap.get(key), purlBMap.get(key))));
+                .collect(Collectors.toMap(key -> key, key -> new ValueChanges(purlAMap.get(key), purlBMap.get(key))));
     }
 
-    public Map<String, String> findDifference(PackageURL other) {
-        return findDifference(this.getPackageURL(), other);
+    private static String findDifferenceAsString(PackageURL a, PackageURL b) {
+        Map<String, ValueChanges> diff = findDifference(a, b);
+        if (diff.isEmpty())
+            return "";
+        try {
+            return objectMapper.writeValueAsString(diff);
+        } catch (JsonProcessingException e) {
+            log.error(
+                    "Unable to deserialize differences between PURL: {} and PURL: {}",
+                    a.canonicalize(),
+                    b.canonicalize());
+        }
+        return null;
+    }
+
+    public String findDifferenceAsString(PackageURL other) {
+        return findDifferenceAsString(this.getPackageURL(), other);
     }
 }
