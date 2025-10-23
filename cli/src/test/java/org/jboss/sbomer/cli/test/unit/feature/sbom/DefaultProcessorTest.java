@@ -1,5 +1,6 @@
 package org.jboss.sbomer.cli.test.unit.feature.sbom;
 
+import static com.redhat.red.build.koji.model.json.KojiJsonConstants.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -9,6 +10,7 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.net.URL;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.cyclonedx.model.Bom;
@@ -23,6 +25,7 @@ import org.jboss.pnc.dto.Artifact;
 import org.jboss.pnc.dto.Build;
 import org.jboss.pnc.dto.BuildConfigurationRevisionRef;
 import org.jboss.pnc.enums.BuildType;
+import org.jboss.sbomer.cli.feature.sbom.client.CachitoClient;
 import org.jboss.sbomer.cli.feature.sbom.processor.DefaultProcessor;
 import org.jboss.sbomer.cli.feature.sbom.service.KojiService;
 import org.jboss.sbomer.core.features.sbom.Constants;
@@ -42,12 +45,15 @@ class DefaultProcessorTest {
 
     private static final ObjectMapper OBJECT_MAPPER = ObjectMapperProvider.json();
 
+    private static final String ARCHIVES = "archives";
+
     @Test
     void testProcessingWhenNoDataIsAvailable() throws IOException {
         PncService pncServiceMock = Mockito.mock(PncService.class);
         KojiService kojiServiceMock = Mockito.mock(KojiService.class);
+        CachitoClient cachitoClientMock = Mockito.mock(CachitoClient.class);
 
-        DefaultProcessor defaultProcessor = new DefaultProcessor(pncServiceMock, kojiServiceMock);
+        DefaultProcessor defaultProcessor = new DefaultProcessor(pncServiceMock, kojiServiceMock, cachitoClientMock);
 
         Bom bom = SbomUtils.fromString(TestResources.asString("boms/image-after-adjustments.json"));
         Bom processed = defaultProcessor.process(bom);
@@ -56,9 +62,58 @@ class DefaultProcessorTest {
     }
 
     @Test
+    void testAddPedigreeRemoteSources() throws IOException, KojiClientException {
+        PncService pncServiceMock = Mockito.mock(PncService.class);
+        KojiService kojiServiceMock = Mockito.mock(KojiService.class);
+        CachitoClient cachitoClientMock = Mockito.mock(CachitoClient.class);
+
+        DefaultProcessor defaultProcessor = new DefaultProcessor(pncServiceMock, kojiServiceMock, cachitoClientMock);
+
+        KojiBuildInfo kojiBuildInfo = new KojiBuildInfo();
+        kojiBuildInfo.setId(3501286);
+        kojiBuildInfo.setSource("https://git.com/repo#hash");
+
+        Map<String, Object> r1 = Map.of(
+                ARCHIVES,
+                List.of(
+                        "remote-source-rox.json",
+                        "remote-source-rox.tar.gz",
+                        "remote-source-rox.env.json",
+                        "remote-source-rox.config.json"),
+                NAME,
+                "rox",
+                URL,
+                "https://cachito/api/v1/requests/1879098");
+
+        Map<String, Object> r2 = Map.of(
+                ARCHIVES,
+                List.of(
+                        "remote-source-rocksdb.json",
+                        "remote-source-rocksdb.tar.gz",
+                        "remote-source-rocksdb.env.json",
+                        "remote-source-rocksdb.config.json"),
+                NAME,
+                "rocksdb",
+                URL,
+                "https://cachito/api/v1/requests/1879099");
+
+        kojiBuildInfo.setExtra(Map.of("remote-sources", List.of(r1, r2)));
+        BuildConfig buildConfig = new BuildConfig();
+        buildConfig.setKojiWebURL(new URL("https://koji.web"));
+
+        when(kojiServiceMock.getConfig()).thenReturn(buildConfig);
+        when(kojiServiceMock.findBuild("rhacs-main-container-4.4.8-2")).thenReturn(kojiBuildInfo);
+
+        Bom bom = SbomUtils.fromString(TestResources.asString("boms/image-after-adjustments.json"));
+        Bom processed = defaultProcessor.process(bom);
+        assertEquals(192, processed.getComponents().size());
+    }
+
+    @Test
     void testAddBrewInfo() throws IOException, KojiClientException {
         PncService pncServiceMock = Mockito.mock(PncService.class);
         KojiService kojiServiceMock = Mockito.mock(KojiService.class);
+        CachitoClient cachitoClientMock = Mockito.mock(CachitoClient.class);
 
         KojiBuildInfo kojiBuildInfo = new KojiBuildInfo();
         kojiBuildInfo.setId(12345);
@@ -70,7 +125,7 @@ class DefaultProcessorTest {
         when(kojiServiceMock.getConfig()).thenReturn(buildConfig);
         when(kojiServiceMock.findBuild("amqstreams-console-ui-container-2.7.0-8.1718294415")).thenReturn(kojiBuildInfo);
 
-        DefaultProcessor defaultProcessor = new DefaultProcessor(pncServiceMock, kojiServiceMock);
+        DefaultProcessor defaultProcessor = new DefaultProcessor(pncServiceMock, kojiServiceMock, cachitoClientMock);
 
         Bom bom = SbomUtils.fromString(TestResources.asString("boms/image-after-adjustments.json"));
         Bom processed = defaultProcessor.process(bom);
@@ -102,6 +157,7 @@ class DefaultProcessorTest {
     void testAddBrewInfoForRpm() throws IOException, KojiClientException {
         PncService pncServiceMock = Mockito.mock(PncService.class);
         KojiService kojiServiceMock = Mockito.mock(KojiService.class);
+        CachitoClient cachitoClientMock = Mockito.mock(CachitoClient.class);
 
         KojiBuildInfo kojiBuildInfo = new KojiBuildInfo();
         kojiBuildInfo.setId(12345);
@@ -113,7 +169,7 @@ class DefaultProcessorTest {
         when(kojiServiceMock.getConfig()).thenReturn(buildConfig);
         when(kojiServiceMock.findBuildByRPM("audit-libs-3.0.7-103.el9.x86_64")).thenReturn(kojiBuildInfo);
 
-        DefaultProcessor defaultProcessor = new DefaultProcessor(pncServiceMock, kojiServiceMock);
+        DefaultProcessor defaultProcessor = new DefaultProcessor(pncServiceMock, kojiServiceMock, cachitoClientMock);
 
         Bom bom = SbomUtils.fromString(TestResources.asString("boms/image-after-adjustments.json"));
         Bom processed = defaultProcessor.process(bom);
@@ -146,6 +202,7 @@ class DefaultProcessorTest {
     void testUpdateComponentAndDependency() throws IOException {
         PncService pncServiceMock = Mockito.mock(PncService.class);
         KojiService kojiServiceMock = Mockito.mock(KojiService.class);
+        CachitoClient cachitoClientMock = Mockito.mock(CachitoClient.class);
 
         Artifact artifact = Artifact.builder()
                 .purl(
@@ -156,7 +213,7 @@ class DefaultProcessorTest {
         when(pncServiceMock.getArtifact(null, Optional.empty(), Optional.of(artifact.getSha1()), Optional.empty()))
                 .thenReturn(artifact);
 
-        DefaultProcessor defaultProcessor = new DefaultProcessor(pncServiceMock, kojiServiceMock);
+        DefaultProcessor defaultProcessor = new DefaultProcessor(pncServiceMock, kojiServiceMock, cachitoClientMock);
 
         Bom bom = SbomUtils.fromString(TestResources.asString("boms/image-after-adjustments.json"));
         Component component = SbomUtils.createComponent(
@@ -209,6 +266,7 @@ class DefaultProcessorTest {
     private static DefaultProcessor mockForAddMissingNpmDependencies() throws IOException {
         PncService pncServiceMock = Mockito.mock(PncService.class);
         KojiService kojiServiceMock = Mockito.mock(KojiService.class);
+        CachitoClient cachitoClientMock = Mockito.mock(CachitoClient.class);
 
         List<Artifact> artifacts = OBJECT_MAPPER
                 .readValue(TestResources.asString("pnc/npmDependencies.json"), new TypeReference<>() {
@@ -223,7 +281,7 @@ class DefaultProcessorTest {
         when(pncServiceMock.getBuild("BALVSAEVTGYAY")).thenReturn(build);
         when(pncServiceMock.getNPMDependencies("BALVSAEVTGYAY")).thenReturn(artifacts);
 
-        return new DefaultProcessor(pncServiceMock, kojiServiceMock);
+        return new DefaultProcessor(pncServiceMock, kojiServiceMock, cachitoClientMock);
     }
 
     private static void verifyAddedNpmDependencies(Bom processed) {
@@ -285,8 +343,9 @@ class DefaultProcessorTest {
 
         PncService pncServiceMock = Mockito.mock(PncService.class);
         KojiService kojiServiceMock = Mockito.mock(KojiService.class);
+        CachitoClient cachitoClientMock = Mockito.mock(CachitoClient.class);
 
-        DefaultProcessor defaultProcessor = new DefaultProcessor(pncServiceMock, kojiServiceMock);
+        DefaultProcessor defaultProcessor = new DefaultProcessor(pncServiceMock, kojiServiceMock, cachitoClientMock);
 
         assertNotNull(bom);
         assertEquals(459, bom.getComponents().size());
