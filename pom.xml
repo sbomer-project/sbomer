@@ -67,7 +67,7 @@
     <version.pnc-api>3.0.7</version.pnc-api>
     <version.quarkus-jgit>3.6.0</version.quarkus-jgit>
     <version.quarkus-kerberos>2.2.0</version.quarkus-kerberos>
-    <version.sonar>4.0.0.4121</version.sonar>
+    <version.sonar>5.2.0.4988</version.sonar>
     <version.quarkus-unleash>1.10.0</version.quarkus-unleash>
     <version.aws>2.33.13</version.aws>
     <version.lombok>1.18.42</version.lombok>
