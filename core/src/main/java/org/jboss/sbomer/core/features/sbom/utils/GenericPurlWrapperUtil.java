@@ -48,12 +48,13 @@ import lombok.extern.slf4j.Slf4j;
 public class GenericPurlWrapperUtil {
 
     /*
-     * Help with Jackson Nothing actually uses this yet, the contents of the evidence.identiy.methods.value field are
+     * Help with Jackson Nothing actually uses this yet, the contents of the evidence.identity.methods.value field are
      * not well documented and not a great deal of examples See
      * https://cyclonedx.org/guides/OWASP_CycloneDX-Authoritative-Guide-to-SBOM-en.pdf
      *
      * Taking my best guess here for something useful
      */
+    @Getter
     private static class ValueChanges {
         private final String from;
         private final String to;
@@ -216,8 +217,8 @@ public class GenericPurlWrapperUtil {
 
     /*
      * For generic purls we want to calculate our confidence in the filename method this is our confidence in the
-     * likelyhood of extracting the right version from a given string we apply penalties for things that is likely to
-     * break the regex, such as: number of seperators, variance of seperators, low digit count, high digit count, letter
+     * likelihood of extracting the right version from a given string we apply penalties for things that is likely to
+     * break the regex, such as: number of separators, variance of separators, low digit count, high digit count, letter
      * and digit ratios, these values are tuned by IDEAL_PURLs
      *
      * We will probably never hit 100% confidence as the variation of IDEAL contradict one another
@@ -319,7 +320,7 @@ public class GenericPurlWrapperUtil {
             }
         }
         if (!found) {
-            log.warn("Unable to exctract version from PURL: {}", p.canonicalize());
+            log.warn("Unable to extract version from PURL: {}", p.canonicalize());
         }
         return replaced;
     }
