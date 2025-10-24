@@ -21,6 +21,7 @@ import org.jboss.sbomer.core.errors.ApplicationException;
 import org.jboss.sbomer.core.features.sbom.utils.ObjectMapperProvider;
 import org.jboss.util.Strings;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -53,6 +54,7 @@ public abstract class RequestConfig {
     @Builder.Default
     String apiVersion = "sbomer.jboss.org/v1alpha1";
 
+    @JsonIgnore
     String type;
 
     public abstract String getType();
