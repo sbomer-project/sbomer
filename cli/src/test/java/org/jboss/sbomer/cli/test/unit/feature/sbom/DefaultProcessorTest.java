@@ -11,13 +11,14 @@ import java.net.URL;
 import java.util.List;
 import java.util.Optional;
 
+import org.cyclonedx.model.Ancestors;
 import org.cyclonedx.model.Bom;
-import org.cyclonedx.model.Commit;
 import org.cyclonedx.model.Component;
 import org.cyclonedx.model.Dependency;
 import org.cyclonedx.model.ExternalReference;
 import org.cyclonedx.model.ExternalReference.Type;
 import org.cyclonedx.model.Hash;
+import org.cyclonedx.model.Pedigree;
 import org.jboss.pnc.build.finder.core.BuildConfig;
 import org.jboss.pnc.dto.Artifact;
 import org.jboss.pnc.dto.Build;
@@ -39,7 +40,6 @@ import com.redhat.red.build.koji.KojiClientException;
 import com.redhat.red.build.koji.model.xmlrpc.KojiBuildInfo;
 
 class DefaultProcessorTest {
-
     private static final ObjectMapper OBJECT_MAPPER = ObjectMapperProvider.json();
 
     @Test
@@ -91,11 +91,17 @@ class DefaultProcessorTest {
                 "https://git.com/repo#hash",
                 SbomUtils.getExternalReferences(mainComponent, Type.VCS).get(0).getUrl());
 
-        Commit commit = mainComponent.getPedigree().getCommits().get(0);
-
-        assertEquals("hash", commit.getUid());
-        assertEquals("https://git.com/repo#hash", commit.getUrl());
-
+        Pedigree pedigree = mainComponent.getPedigree();
+        assertNotNull(pedigree);
+        Ancestors ancestors = pedigree.getAncestors();
+        assertNotNull(ancestors);
+        List<Component> components = ancestors.getComponents();
+        assertNotNull(components);
+        assertEquals(1, components.size());
+        Component component = components.get(0);
+        assertEquals(
+                "pkg:generic/repo@hash?vcs_url=git%2Bhttps%3A%2F%2Fgit.com%2Frepo%23hash#hash",
+                component.getPurl());
     }
 
     @Test
@@ -136,10 +142,17 @@ class DefaultProcessorTest {
                 "https://git.com/repo#hash",
                 SbomUtils.getExternalReferences(rpmComponent, Type.VCS).get(0).getUrl());
 
-        Commit commit = rpmComponent.getPedigree().getCommits().get(0);
-
-        assertEquals("hash", commit.getUid());
-        assertEquals("https://git.com/repo#hash", commit.getUrl());
+        Pedigree pedigree = rpmComponent.getPedigree();
+        assertNotNull(pedigree);
+        Ancestors ancestors = pedigree.getAncestors();
+        assertNotNull(ancestors);
+        List<Component> components = ancestors.getComponents();
+        assertNotNull(components);
+        assertEquals(1, components.size());
+        Component component = components.get(0);
+        assertEquals(
+                "pkg:generic/repo@hash?vcs_url=git%2Bhttps%3A%2F%2Fgit.com%2Frepo%23hash#hash",
+                component.getPurl());
     }
 
     @Test
@@ -255,9 +268,17 @@ class DefaultProcessorTest {
         assertEquals(
                 "https://github.com/kiegroup/kogito-tooling.git",
                 SbomUtils.getExternalReferences(componentKogito, Type.VCS).get(0).getUrl());
-        Commit commit = componentKogito.getPedigree().getCommits().get(0);
-        assertEquals("88c1a77824c7bf0b636f24b4bde2b87c0b38d8a1", commit.getUid());
-        assertEquals("http://git.example.com/gerrit/kiegroup/kogito-tooling.git#0.9.0", commit.getUrl());
+        Pedigree pedigree = componentKogito.getPedigree();
+        assertNotNull(pedigree);
+        Ancestors ancestors = pedigree.getAncestors();
+        assertNotNull(ancestors);
+        List<Component> components = ancestors.getComponents();
+        assertNotNull(components);
+        assertEquals(1, components.size());
+        Component commit = components.get(0);
+        assertEquals(
+                "pkg:generic/kiegroup/kogito-tooling@88c1a77824c7bf0b636f24b4bde2b87c0b38d8a1?vcs_url=git%2Bhttp%3A%2F%2Fgit.example.com%2Fgerrit%2Fkiegroup%2Fkogito-tooling.git%230.9.0#0.9.0",
+                commit.getPurl());
         assertTrue(
                 getDependency(
                         "pkg:npm/%40redhat/kogito-tooling-keyboard-shortcuts@0.9.0-2",

@@ -65,6 +65,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
 import org.commonjava.atlas.maven.ident.ref.SimpleArtifactRef;
 import org.commonjava.atlas.npm.ident.ref.NpmPackageRef;
 import org.cyclonedx.Version;
@@ -72,8 +73,8 @@ import org.cyclonedx.exception.GeneratorException;
 import org.cyclonedx.exception.ParseException;
 import org.cyclonedx.generators.BomGeneratorFactory;
 import org.cyclonedx.generators.json.BomJsonGenerator;
+import org.cyclonedx.model.Ancestors;
 import org.cyclonedx.model.Bom;
-import org.cyclonedx.model.Commit;
 import org.cyclonedx.model.Component;
 import org.cyclonedx.model.Component.Scope;
 import org.cyclonedx.model.Component.Type;
@@ -121,7 +122,13 @@ import com.github.packageurl.PackageURL;
 import com.github.packageurl.PackageURLBuilder;
 
 public class SbomUtils {
+    private static final Logger log = LoggerFactory.getLogger(SbomUtils.class);
+
+    private static final Pattern GIT_PROTOCOL_PATTERN = Pattern.compile("^git@(.+):(.+)", Pattern.CASE_INSENSITIVE);
+
     public static final String PROTOCOL = "https://";
+
+    public static final String VCS_TOOL_PLUS = "git+";
 
     public static final String COMPONENT_LICENSE_ACKNOWLEDGEMENT = "concluded";
 
@@ -145,9 +152,6 @@ public class SbomUtils {
     private SbomUtils() {
         // This is a utility class
     }
-
-    private static final Logger log = LoggerFactory.getLogger(SbomUtils.class);
-    private static final Pattern gitProtocolPattern = Pattern.compile("git@(.+):(.+)", Pattern.CASE_INSENSITIVE);
 
     public static Version schemaVersion() {
         return Version.VERSION_16;
@@ -263,15 +267,14 @@ public class SbomUtils {
                     "");
         }
 
-        addPedigreeCommit(component, pncBuild.getScmUrl() + "#" + pncBuild.getScmTag(), pncBuild.getScmRevision());
+        addPedigreeAncestor(component, pncBuild.getScmUrl() + "#" + pncBuild.getScmTag(), pncBuild.getScmRevision());
 
         // If the SCM repository is not internal and a commitID was computed, add the pedigree.
         if (!Strings.isEmpty(pncBuild.getScmRepository().getExternalUrl())
                 && pncBuild.getScmBuildConfigRevisionInternal() != null
                 && !Boolean.TRUE.equals(pncBuild.getScmBuildConfigRevisionInternal())
                 && pncBuild.getScmBuildConfigRevision() != null) {
-
-            addPedigreeCommit(
+            addPedigreeAncestor(
                     component,
                     pncBuild.getScmRepository().getExternalUrl() + "#"
                             + pncBuild.getBuildConfigRevision().getScmRevision(),
@@ -317,7 +320,6 @@ public class SbomUtils {
             Optional<String> source,
             String kojiApiUrl) {
         if (brewBuildId != null) {
-
             addExternalReference(
                     component,
                     ExternalReference.Type.BUILD_SYSTEM,
@@ -334,7 +336,7 @@ public class SbomUtils {
                 int hashIndex = scmSource.lastIndexOf('#');
                 if (hashIndex != -1) {
                     String commit = scmSource.substring(hashIndex + 1);
-                    addPedigreeCommit(component, scmSource, commit);
+                    addPedigreeAncestor(component, scmSource, commit);
                 }
             }
         }
@@ -364,17 +366,20 @@ public class SbomUtils {
                                 }));
     }
 
-    public static Optional<URI> getNormalizedUrl(String url) {
-        if (Strings.isEmpty(url)) {
+    public static Optional<URI> getNormalizedUrl(String uri) {
+        if (Strings.isEmpty(uri)) {
             return Optional.empty();
         }
 
         try {
-            return Optional.of(new URI(url).normalize());
+            return getNormalizedUrl(new URI(uri));
         } catch (URISyntaxException e) {
-            log.error("Failed to normalize URL '{}': {}", url, e.getMessage(), e);
             return Optional.empty();
         }
+    }
+
+    public static Optional<URI> getNormalizedUrl(URI uri) {
+        return Optional.of(uri.normalize());
     }
 
     private static void addLicenseEvidence(Component component, List<LicenseInfo> licenseInfos) {
@@ -848,7 +853,7 @@ public class SbomUtils {
             log.info("Adding {} property with value: {}", property, value);
             addProperty(component, property, value);
         } else {
-            log.debug("Property {} already exist, value: {}", property, p.get().getValue());
+            log.debug("Property {} already exists, value: {}", property, p.get().getValue());
         }
     }
 
@@ -870,7 +875,7 @@ public class SbomUtils {
             log.info("Adding {} property with value: {}", property, value);
             addProperty(metadata, property, value);
         } else {
-            log.debug("Property {} already exist, value: {}", property, p.get().getValue());
+            log.debug("Property {} already exists, value: {}", property, p.get().getValue());
         }
     }
 
@@ -929,7 +934,6 @@ public class SbomUtils {
             Component c,
             ExternalReference.Type type,
             String comment) {
-
         return Optional.ofNullable(c.getExternalReferences())
                 .stream()
                 .flatMap(Collection::stream)
@@ -968,36 +972,115 @@ public class SbomUtils {
         c.setExternalReferences(externalRefs);
     }
 
-    public static void addPedigreeCommit(Component c, String url, String uid) {
-        if (!Strings.isEmpty(url)) {
+    public static PackageURL getPurlFromScmUrl(URI uri, String version) throws MalformedPackageURLException {
+        String rawPath = uri.getRawPath();
 
-            Matcher matcher = gitProtocolPattern.matcher(url);
-
-            if (matcher.find()) {
-                log.debug(
-                        "Found URL to be added as pedigree commit with the 'git@' protocol: '{}', trying to convert it into 'https://'",
-                        url);
-
-                url = PROTOCOL + matcher.group(1) + "/" + matcher.group(2);
-
-                log.debug("Converted into: '{}'", url);
-
-            }
-
-            Pedigree pedigree = c.getPedigree() == null ? new Pedigree() : c.getPedigree();
-            List<Commit> commits = new ArrayList<>();
-            if (pedigree.getCommits() != null) {
-                commits.addAll(pedigree.getCommits());
-            }
-
-            Commit newCommit = new Commit();
-            newCommit.setUid(uid);
-            newCommit.setUrl(url);
-            commits.add(newCommit);
-            pedigree.setCommits(commits);
-
-            c.setPedigree(pedigree);
+        if (rawPath == null) {
+            throw new MalformedPackageURLException("Null path in URI '" + uri + "'");
         }
+
+        String[] segments = StringUtils.split(StringUtils.removeEnd(StringUtils.strip(rawPath, "/"), ".git"), '/');
+        int numSegments = segments.length;
+
+        if (numSegments < 1) {
+            throw new MalformedPackageURLException(
+                    "Invalid number of rawPath segments in '" + rawPath + "': " + numSegments + " in URI '" + uri
+                            + "'");
+        }
+
+        String namespace = numSegments >= 2 ? segments[numSegments - 2] : null;
+        String name = segments[numSegments - 1];
+        PackageURLBuilder builder = PackageURLBuilder.aPackageURL()
+                .withType(PackageURL.StandardTypes.GENERIC)
+                .withNamespace(namespace)
+                .withName(name)
+                .withVersion(version)
+                .withSubpath(uri.getRawFragment());
+        builder.withQualifier("vcs_url", uri.toString());
+        return builder.build();
+    }
+
+    public static void addPedigreeAncestor(Component c, String url, String uid) {
+        if (Strings.isEmpty(url)) {
+            return;
+        }
+
+        Component component = new Component();
+        Optional<URI> gitUrl = fixGitUrl(url);
+
+        if (gitUrl.isPresent()) {
+            try {
+                PackageURL packageURL = getPurlFromScmUrl(gitUrl.get(), uid);
+                String purl = packageURL.toString();
+                component.setBomRef(purl);
+                component.setPurl(purl);
+            } catch (MalformedPackageURLException e) {
+                log.error("Error creating purl for URL '{}': {}", gitUrl, e.getMessage(), e);
+            }
+        }
+
+        component.setType(c.getType());
+        component.setName(c.getName());
+        component.setVersion(uid);
+
+        Pedigree pedigree = c.getPedigree() != null ? c.getPedigree() : new Pedigree();
+        Ancestors ancestors = pedigree.getAncestors() != null ? pedigree.getAncestors() : new Ancestors();
+        ancestors.addComponent(component);
+        pedigree.setAncestors(ancestors);
+        c.setPedigree(pedigree);
+    }
+
+    /**
+     * Fixes a Git URL that uses the 'git@' protocol to a more standard 'git+https://' format according to <a href=
+     * "https://github.com/spdx/spdx-spec/blob/cfa1b9d08903/chapters/3-package-information.md#37-package-download-location-">3.7
+     * Package Download Location</a>. The returned URL will match
+     * {@code <vcs_tool>+<transport>://<host_name>[/<path_to_repository>][@<revision_tag_or_branch>][#<sub_path>]}.
+     *
+     * @param url the GIT URL to fix
+     * @return the fixed git URL with
+     */
+    //
+    public static Optional<URI> fixGitUrl(String url) {
+        Matcher matcher = GIT_PROTOCOL_PATTERN.matcher(url);
+
+        if (!matcher.find()) {
+            // XXX: According to the SPDX specification, the VCS URL MUST contain the VCS tool, so if we don't find one,
+            // assume git
+            Optional<URI> optionalURI = getNormalizedUrl(url);
+
+            if (optionalURI.isPresent()) {
+                URI uri = optionalURI.get();
+                String scheme = uri.getScheme();
+
+                if (scheme != null && scheme.indexOf('+') == -1) {
+                    scheme = VCS_TOOL_PLUS + scheme;
+
+                    try {
+                        optionalURI = getNormalizedUrl(
+                                new URI(
+                                        scheme,
+                                        uri.getUserInfo(),
+                                        uri.getHost(),
+                                        uri.getPort(),
+                                        uri.getPath(),
+                                        uri.getQuery(),
+                                        uri.getFragment()));
+                    } catch (URISyntaxException e) {
+                        log.error("Failed to normalize URL '{}': {}", url, e.getMessage(), e);
+                        return Optional.empty();
+                    }
+                }
+            }
+
+            return optionalURI;
+        }
+
+        log.debug(
+                "Found URL to be added as pedigree commit with the 'git@' protocol: '{}', trying to convert it into 'git+https://'",
+                url);
+        String convertedUrl = VCS_TOOL_PLUS + PROTOCOL + matcher.group(1) + "/" + matcher.group(2);
+        log.debug("Converted URL '{}' into: '{}'", url, convertedUrl);
+        return getNormalizedUrl(convertedUrl);
     }
 
     public static void setPublisher(Component c) {
@@ -1302,7 +1385,7 @@ public class SbomUtils {
                     .build()
                     .toString();
         } catch (MalformedPackageURLException | IllegalArgumentException e) {
-            log.warn(
+            log.error(
                     "Error while creating summary PURL for imageName {} and imageDigest {}",
                     imageName,
                     imageDigest,

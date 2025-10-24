@@ -19,6 +19,7 @@ package org.jboss.sbomer.cli.test.integ.feature.sbom.command.processor;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -29,11 +30,12 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
+import org.cyclonedx.model.Ancestors;
 import org.cyclonedx.model.Bom;
-import org.cyclonedx.model.Commit;
 import org.cyclonedx.model.Component;
 import org.cyclonedx.model.ExternalReference;
 import org.cyclonedx.model.Hash;
+import org.cyclonedx.model.Pedigree;
 import org.hamcrest.CoreMatchers;
 import org.jboss.pnc.dto.Artifact;
 import org.jboss.pnc.dto.Build;
@@ -94,7 +96,7 @@ class DefaultProcessCommandIT {
                 .scmRepository(SCMRepository.builder().externalUrl("externalurl").build())
                 .scmTag("scmtag")
                 .scmRevision("scmrevision")
-                .scmUrl("scmurl")
+                .scmUrl("https://github.com/scmorganization/scmproject")
                 .build();
     }
 
@@ -180,10 +182,17 @@ class DefaultProcessCommandIT {
             assertEquals("Red Hat", component.getSupplier().getName());
             assertEquals(List.of("https://www.redhat.com"), component.getSupplier().getUrls());
 
-            Commit commit = component.getPedigree().getCommits().get(0);
-
-            assertEquals("scmrevision", commit.getUid());
-            assertEquals("scmurl#scmtag", commit.getUrl());
+            Pedigree pedigree = component.getPedigree();
+            assertNotNull(pedigree);
+            Ancestors ancestors = pedigree.getAncestors();
+            assertNotNull(ancestors);
+            List<Component> components = ancestors.getComponents();
+            assertNotNull(components);
+            assertEquals(1, components.size());
+            Component component1 = components.get(0);
+            assertEquals(
+                    "pkg:generic/scmorganization/scmproject@scmrevision?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fscmorganization%2Fscmproject%23scmtag#scmtag",
+                    component1.getPurl());
         }
     }
 
