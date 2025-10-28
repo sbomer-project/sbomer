@@ -207,7 +207,12 @@ public class DefaultProcessor implements Processor {
     }
 
     protected void processBrewBuild(Component component, Artifact artifact) {
-        KojiBuild brewBuild = kojiService.findBuild(artifact);
+        KojiBuild brewBuild = null;
+        try {
+            brewBuild = kojiService.findBuild(artifact);
+        } catch (Throwable e) {
+            log.error("Lookup in Brew failed due to {}", e.getMessage() == null ? e.toString() : e.getMessage(), e);
+        }
         if (brewBuild != null) {
 
             log.debug(

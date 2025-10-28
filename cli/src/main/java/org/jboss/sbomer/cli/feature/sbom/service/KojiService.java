@@ -26,16 +26,20 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 import org.apache.commons.collections4.MultiValuedMap;
 import org.eclipse.microprofile.context.ManagedExecutor;
+import org.eclipse.microprofile.faulttolerance.Retry;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.pnc.build.finder.core.BuildConfig;
 import org.jboss.pnc.build.finder.core.BuildFinder;
@@ -69,6 +73,9 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
+import static org.jboss.sbomer.core.rest.faulttolerance.Constants.KOJI_SERVICE_DELAY;
+import static org.jboss.sbomer.core.rest.faulttolerance.Constants.KOJI_SERVICE_MAX_RETRIES;
+
 /**
  * A service to interact with the Koji (Brew) build system.
  */
@@ -76,7 +83,7 @@ import lombok.extern.slf4j.Slf4j;
 @ApplicationScoped
 public class KojiService {
 
-    private static final Long MAX_BREW_WAIT_5_MIN = 5 * 60 * 1000L;
+    private static final int MAX_BREW_WAIT_MIN = 5;
     private static final KojiObjectMapper MAPPER = new KojiObjectMapper();
     public static final String REMOTE_SOURCE_PREFIX = "remote-source";
     public static final String REMOTE_SOURCE_DELIMITER = "-";
@@ -110,7 +117,7 @@ public class KojiService {
      * @return Results of the analysis if the whole operation was successful.
      * @throws Throwable Thrown in case of any errors during the analysis
      */
-    public List<KojiBuild> find(
+    private List<KojiBuild> find(
             String url,
             DistributionAnalyzerListener distributionAnalyzerListener,
             BuildFinderListener buildFinderListener) throws Throwable {
@@ -123,12 +130,7 @@ public class KojiService {
             }
         });
 
-        try {
-            return awaitResults(finderTask);
-        } catch (InterruptedException | ExecutionException e) { // NOSONAR We are rethrowing it.
-            log.debug("Analysis failed due to {}", e.getMessage(), e);
-            throw e.getCause();
-        }
+        return awaitResults(finderTask);
     }
 
     /**
@@ -178,56 +180,48 @@ public class KojiService {
         return brewBuilds;
     }
 
-    private List<KojiBuild> awaitResults(Future<List<KojiBuild>> finderTask)
-            throws InterruptedException, ExecutionException {
-
-        int retry = 1;
-        while (!finderTask.isDone() && (retry * 500L) < MAX_BREW_WAIT_5_MIN) {
-            try {
-                retry++;
-                // FIXME: Call to 'Thread.sleep()' in a loop, probably busy-waiting
-                Thread.sleep(500);
-            } catch (InterruptedException e) {
-                log.warn("Sleeping while awaiting results was interrupted", e);
-                Thread.currentThread().interrupt();
-            }
+    private List<KojiBuild> awaitResults(Future<List<KojiBuild>> finderTask) throws Throwable {
+        try {
+            return finderTask.get(MAX_BREW_WAIT_MIN, TimeUnit.MINUTES);
+        } catch (TimeoutException e) {
+            log.debug("Timeout waiting for build results");
+            return Collections.emptyList();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Collections.emptyList();
+        } catch (ExecutionException e) { // NOSONAR We are rethrowing it.
+            log.debug("Analysis failed due to {}", e.getMessage(), e);
+            throw e.getCause();
         }
-        if (finderTask.isDone()) {
-            return finderTask.get();
-        }
-        return Collections.emptyList();
     }
 
-    public KojiBuild findBuild(Artifact artifact) {
-
+    @Retry(maxRetries = KOJI_SERVICE_MAX_RETRIES, delay = KOJI_SERVICE_DELAY, delayUnit = ChronoUnit.SECONDS)
+    public KojiBuild findBuild(Artifact artifact) throws Throwable {
         if (artifact.getPublicUrl() == null) {
             return null;
         }
 
-        try {
-            FinderStatus status = new FinderStatus();
-            log.trace("Searching for artifact '{}' in Brew...", artifact.getPublicUrl());
-            List<KojiBuild> brewBuilds = find(artifact.getPublicUrl(), status, status);
-            if (brewBuilds.size() == 1) {
-                log.trace(
-                        "Found Brew build with id {} of artifact: '{}'",
-                        brewBuilds.get(0).getId(),
-                        artifact.getPublicUrl());
-                return brewBuilds.get(0);
-            } else if (brewBuilds.size() > 1) {
-                String brewBuildIds = brewBuilds.stream().map(KojiBuild::getId).collect(Collectors.joining(", "));
-                log.warn(
-                        "Multiple builds (with ids: {}) where found in Brew of the artifact '{}', picking the first one!",
-                        brewBuildIds,
-                        artifact.getPublicUrl());
-                return brewBuilds.get(0);
-            }
-        } catch (Throwable e) {
-            log.error("Lookup in Brew failed due to {}", e.getMessage() == null ? e.toString() : e.getMessage(), e);
+        FinderStatus status = new FinderStatus();
+        log.trace("Searching for artifact '{}' in Brew...", artifact.getPublicUrl());
+        List<KojiBuild> brewBuilds = find(artifact.getPublicUrl(), status, status);
+        if (brewBuilds.size() == 1) {
+            log.trace(
+                    "Found Brew build with id {} of artifact: '{}'",
+                    brewBuilds.get(0).getId(),
+                    artifact.getPublicUrl());
+            return brewBuilds.get(0);
+        } else if (brewBuilds.size() > 1) {
+            String brewBuildIds = brewBuilds.stream().map(KojiBuild::getId).collect(Collectors.joining(", "));
+            log.warn(
+                    "Multiple builds (with ids: {}) where found in Brew of the artifact '{}', picking the first one!",
+                    brewBuildIds,
+                    artifact.getPublicUrl());
+            return brewBuilds.get(0);
         }
         return null;
     }
 
+    @Retry(maxRetries = KOJI_SERVICE_MAX_RETRIES, delay = KOJI_SERVICE_DELAY, delayUnit = ChronoUnit.SECONDS)
     public KojiBuildInfo findBuildByRPM(String nvra) throws KojiClientException {
         if (nvra == null) {
             return null;
@@ -268,6 +262,7 @@ public class KojiService {
         return buildInfo;
     }
 
+    @Retry(maxRetries = KOJI_SERVICE_MAX_RETRIES, delay = KOJI_SERVICE_DELAY, delayUnit = ChronoUnit.SECONDS)
     public KojiBuildInfo findBuild(int id) throws KojiClientException {
         log.debug("Retrieving Brew build with id '{}'...", id);
 
@@ -281,6 +276,7 @@ public class KojiService {
         return build;
     }
 
+    @Retry(maxRetries = KOJI_SERVICE_MAX_RETRIES, delay = KOJI_SERVICE_DELAY, delayUnit = ChronoUnit.SECONDS)
     public KojiBuildInfo findBuild(String nvr) throws KojiClientException {
         if (nvr == null) {
             return null;
