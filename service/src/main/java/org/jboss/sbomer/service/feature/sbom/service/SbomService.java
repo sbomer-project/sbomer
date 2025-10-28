@@ -617,7 +617,7 @@ public class SbomService {
         // The generations of _build_ manifests have config != null
         List<V1Beta1RequestRecord> advisoryBuildRequestRecords = allAdvisoryRequestRecordsFiltered.stream()
                 .filter(
-                        record -> record.manifests()
+                        record -> !record.manifests().isEmpty() && record.manifests()
                                 .stream()
                                 .noneMatch(
                                         manifest -> manifest.generation() != null
