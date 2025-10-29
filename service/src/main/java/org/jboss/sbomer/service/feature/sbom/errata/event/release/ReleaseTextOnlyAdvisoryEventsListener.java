@@ -174,6 +174,7 @@ public class ReleaseTextOnlyAdvisoryEventsListener extends AbstractEventsListene
         // FIXME: 'Optional.get()' without 'isPresent()' check
         String productName = erratum.getDetails().get().getProduct().getName();
         String productVersion = erratum.getContent().getContent().getProductVersionText();
+        String cpeText = erratum.getContent().getContent().getTextOnlyCpe();
 
         // Create the release manifest for this ProductVersion
         Bom productVersionBom = createProductVersionBom(productType, erratum, toolVersion);
@@ -193,7 +194,7 @@ public class ReleaseTextOnlyAdvisoryEventsListener extends AbstractEventsListene
         SbomUtils.addMissingMetadataSupplier(productVersionBom);
         SbomUtils.addMissingSerialNumber(productVersionBom);
 
-        SbomGenerationRequest releaseGeneration = releaseGenerations.get(productVersion);
+        SbomGenerationRequest releaseGeneration = releaseGenerations.get(cpeText);
         List<Sbom> sbomsToUpload = saveReleaseManifestForTextOnlyAdvisories(
                 requestEvent,
                 erratum,
