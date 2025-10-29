@@ -740,7 +740,7 @@ class ReleaseAdvisoryEventsListenerTest {
         listenerTextOnlyManifests.setRequestEventRepository(requestEventRepository);
         listenerTextOnlyManifests.setAtlasHandler(atlasHandler);
 
-        String productVersionText = "Red Hat build of Quarkus 2.13.9.SP2";
+        String cpeText = "cpe:/a:redhat:quarkus:2.13";
         Errata errata = loadErrata("textOnly/manifests/errata.json");
         RequestEvent requestEvent = loadRequestEvent("textOnly/manifests/request_event.json");
         Sbom sbom = loadSbom("textOnly/manifests/6346322A131A437.json");
@@ -750,14 +750,14 @@ class ReleaseAdvisoryEventsListenerTest {
         assertTrue(errata.getDetails().isPresent());
         SbomGenerationRequest sbomGenerationRequest = SbomGenerationRequest.builder()
                 .withId(RandomStringIdGenerator.generate())
-                .withIdentifier(errata.getDetails().get().getFulladvisory() + "#" + productVersionText)
+                .withIdentifier(errata.getDetails().get().getFulladvisory() + "#" + cpeText)
                 .withType(GenerationRequestType.BUILD)
                 .withStatus(SbomGenerationStatus.GENERATING)
                 .withConfig(null) // I really don't know what to put here
                 .withRequest(requestEvent)
                 .build();
         generationsMap.put(sbomGenerationRequest.getId(), sbomGenerationRequest);
-        pvToGenerations.put(productVersionText, sbomGenerationRequest);
+        pvToGenerations.put(cpeText, sbomGenerationRequest);
 
         when(errataClient.getErratum(String.valueOf(errata.getDetails().get().getId()))).thenReturn(errata);
         when(statsService.getStats())
@@ -792,7 +792,7 @@ class ReleaseAdvisoryEventsListenerTest {
         listenerTextOnlyDeliverables.setRequestEventRepository(requestEventRepository);
         listenerTextOnlyDeliverables.setAtlasHandler(atlasHandler);
 
-        String productVersionText = "Red Hat build of Quarkus 3.2.11";
+        String cpeText = "cpe:/a:redhat:quarkus:3.2::el8";
         Errata errata = loadErrata("textOnly/deliverables/errata.json");
         RequestEvent requestEvent = loadRequestEvent("textOnly/deliverables/request_event.json");
         List<V1Beta1RequestRecord> allAdvisoryRequestRecords = loadRequestRecords(
@@ -806,14 +806,14 @@ class ReleaseAdvisoryEventsListenerTest {
         assertTrue(errata.getDetails().isPresent());
         SbomGenerationRequest sbomGenerationRequest = SbomGenerationRequest.builder()
                 .withId(RandomStringIdGenerator.generate())
-                .withIdentifier(errata.getDetails().get().getFulladvisory() + "#" + productVersionText)
+                .withIdentifier(errata.getDetails().get().getFulladvisory() + "#" + cpeText)
                 .withType(GenerationRequestType.BUILD)
                 .withStatus(SbomGenerationStatus.GENERATING)
                 .withConfig(null) // I really don't know what to put here
                 .withRequest(requestEvent)
                 .build();
         generationsMap.put(sbomGenerationRequest.getId(), sbomGenerationRequest);
-        pvToGenerations.put(productVersionText, sbomGenerationRequest);
+        pvToGenerations.put(cpeText, sbomGenerationRequest);
 
         when(errataClient.getErratum(String.valueOf(errata.getDetails().get().getId()))).thenReturn(errata);
         when(statsService.getStats())
