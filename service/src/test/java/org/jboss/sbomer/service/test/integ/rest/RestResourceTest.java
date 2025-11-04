@@ -73,7 +73,6 @@ import org.mockito.Mockito;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.quarkus.test.InjectMock;
@@ -327,13 +326,13 @@ class RestResourceTest {
         private static final String API_VERSION = "v1beta1";
 
         private final String requestApiPath = String.format("/api/%s/generations", API_VERSION);
-        private static final JsonFactory JSON_FACTORY = new JsonFactory().enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
+        private static final JsonFactory JSON_FACTORY = new JsonFactory()
+                .enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
         private static final ObjectMapper MAPPER = new ObjectMapper(JSON_FACTORY);
 
         boolean isValidJson(String jsonString) {
-            try (JsonParser parser = JSON_FACTORY.createParser(jsonString)) {
-                 MAPPER.readTree(jsonString); 
-                return true;
+            try (JsonParser parser = MAPPER.createParser(jsonString)) {
+                return parser.readValueAsTree() != null;
             } catch (Exception e) {
                 return false;
             }
