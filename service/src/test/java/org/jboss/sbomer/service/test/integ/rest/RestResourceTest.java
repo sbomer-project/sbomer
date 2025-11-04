@@ -327,33 +327,15 @@ class RestResourceTest {
         private static final String API_VERSION = "v1beta1";
 
         private final String requestApiPath = String.format("/api/%s/generations", API_VERSION);
-        private static final JsonFactory JSON_FACTORY = new JsonFactory();
+        private static final JsonFactory JSON_FACTORY = new JsonFactory().enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
+        private static final ObjectMapper MAPPER = new ObjectMapper(JSON_FACTORY);
 
-        boolean validJson(String jsonString) {
-            if (jsonString == null || jsonString.trim().isEmpty()) {
-                return false; // Test for empty
-            }
-
+        boolean isValidJson(String jsonString) {
             try (JsonParser parser = JSON_FACTORY.createParser(jsonString)) {
-
-                java.util.Set<String> seenKeys = new java.util.HashSet<>();
-                JsonToken token;
-
-                while ((token = parser.nextToken()) != null) {
-                    if (token == JsonToken.START_OBJECT) {
-                        seenKeys.clear();
-                    } else if (token == JsonToken.FIELD_NAME) {
-                        String key = parser.getCurrentName();
-                        if (!seenKeys.add(key)) {
-                            return false; // Duplicate key
-                        }
-                    } else if (token == JsonToken.END_OBJECT) {
-                        seenKeys.clear();
-                    }
-                }
+                 MAPPER.readTree(jsonString); 
                 return true;
             } catch (Exception e) {
-                return false; // Invalid JSON
+                return false;
             }
         }
 
@@ -404,8 +386,8 @@ class RestResourceTest {
                     .response();
 
             String rawJsonBody = response.asString();
+            assertTrue(isValidJson(rawJsonBody), "Raw json contains duplicate fields or is invalid");
             V1Beta1RequestRecord record = response.as(V1Beta1RequestRecord.class);
-            assertTrue(validJson(rawJsonBody), "Raw json contains duplicate fields or is invalid");
             assertNotNull(record.id());
             assertNotNull(record.receivalTime());
             assertEquals("REST", record.eventType().toString());
@@ -429,9 +411,8 @@ class RestResourceTest {
                     .response();
 
             String rawJsonBody = response.asString();
+            assertTrue(isValidJson(rawJsonBody), "Raw json contains duplicate fields or is invalid");
             V1Beta1RequestRecord record = response.as(V1Beta1RequestRecord.class);
-
-            assertTrue(validJson(rawJsonBody), "Raw json contains duplicate fields or is invalid");
             assertNotNull(record.id());
             assertNotNull(record.receivalTime());
             assertEquals("REST", record.eventType().toString());
@@ -482,9 +463,8 @@ class RestResourceTest {
                     .response();
 
             String rawJsonBody = response.asString();
+            assertTrue(isValidJson(rawJsonBody), "Raw json contains duplicate fields or is invalid");
             V1Beta1RequestRecord record = response.as(V1Beta1RequestRecord.class);
-
-            assertTrue(validJson(rawJsonBody), "Raw json contains duplicate fields or is invalid");
             assertNotNull(record.id());
             assertNotNull(record.receivalTime());
             assertEquals("REST", record.eventType().toString());
@@ -509,9 +489,8 @@ class RestResourceTest {
                     .response();
 
             String rawJsonBody = response.asString();
+            assertTrue(isValidJson(rawJsonBody), "Raw json contains duplicate fields or is invalid");
             V1Beta1RequestRecord record = response.as(V1Beta1RequestRecord.class);
-
-            assertTrue(validJson(rawJsonBody), "Raw json contains duplicate fields or is invalid");
             assertNotNull(record.id());
             assertNotNull(record.receivalTime());
             assertEquals("REST", record.eventType().toString());
@@ -548,9 +527,8 @@ class RestResourceTest {
                     .response();
 
             String rawJsonBody = response.asString();
+            assertTrue(isValidJson(rawJsonBody), "Raw json contains duplicate fields or is invalid");
             V1Beta1RequestRecord record = response.as(V1Beta1RequestRecord.class);
-
-            assertTrue(validJson(rawJsonBody), "Raw json contains duplicate fields or is invalid");
             assertNotNull(record.id());
             assertNotNull(record.receivalTime());
             assertEquals("REST", record.eventType().toString());
