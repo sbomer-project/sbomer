@@ -23,6 +23,7 @@ public class Constants {
     public static final int ERRATA_CLIENT_MAX_RETRIES = 15;
     public static final int PYXIS_CLIENT_MAX_RETRIES = 15;
     public static final int ATLAS_CLIENT_MAX_RETRIES = 15;
+    public static final int KOJI_SERVICE_MAX_RETRIES = 15;
     public static final int KOJI_DOWNLOAD_CLIENT_MAX_RETRIES = 15;
     public static final int SBOMER_CLIENT_MAX_RETRIES = 15;
 
@@ -30,6 +31,7 @@ public class Constants {
     public static final long ERRATA_CLIENT_DELAY = 1;
     public static final long PYXIS_CLIENT_DELAY = 1;
     public static final long ATLAS_CLIENT_DELAY = 1;
+    public static final long KOJI_SERVICE_DELAY = 1;
     public static final long KOJI_DOWNLOAD_CLIENT_DELAY = 1;
     public static final long SBOMER_CLIENT_DELAY = 1;
 
