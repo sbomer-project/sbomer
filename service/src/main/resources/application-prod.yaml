@@ -76,6 +76,10 @@ quarkus:
     traces:
       enabled: true
       sampler: always_on
+    metrics:
+      enabled: true
+    logs:
+      enabled: true
 
   http:
     cors:
