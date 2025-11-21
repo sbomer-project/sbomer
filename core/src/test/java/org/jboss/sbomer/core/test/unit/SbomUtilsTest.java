@@ -31,6 +31,8 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -39,6 +41,7 @@ import java.util.Optional;
 
 import org.cyclonedx.Version;
 import org.cyclonedx.generators.json.BomJsonGenerator;
+import org.cyclonedx.model.Ancestors;
 import org.cyclonedx.model.Bom;
 import org.cyclonedx.model.Component;
 import org.cyclonedx.model.Component.Type;
@@ -51,6 +54,7 @@ import org.cyclonedx.model.License;
 import org.cyclonedx.model.LicenseChoice;
 import org.cyclonedx.model.Metadata;
 import org.cyclonedx.model.OrganizationalEntity;
+import org.cyclonedx.model.Pedigree;
 import org.cyclonedx.model.Property;
 import org.cyclonedx.model.Service;
 import org.cyclonedx.model.component.evidence.Identity;
@@ -65,6 +69,7 @@ import org.jboss.pnc.dto.response.AnalyzedDistribution;
 import org.jboss.pnc.enums.SystemImageType;
 import org.jboss.sbomer.core.features.sbom.Constants;
 import org.jboss.sbomer.core.features.sbom.utils.SbomUtils;
+import org.jboss.sbomer.core.features.sbom.utils.VcsUrl;
 import org.jboss.sbomer.core.test.TestResources;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
@@ -72,6 +77,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
@@ -79,7 +85,6 @@ import com.github.packageurl.MalformedPackageURLException;
 import com.github.packageurl.PackageURL;
 
 class SbomUtilsTest {
-
     static Path sbomPath(String fileName) {
         return Paths.get("src", "test", "resources", "sboms", fileName);
     }
@@ -223,29 +228,86 @@ class SbomUtilsTest {
         }
 
         @Test
-        void shouldHandleRegularProtocolUrlsForPedigrees() {
-            Component component = new Component();
-            SbomUtils.addPedigreeCommit(
-                    component,
-                    "https://github.com/FasterXML/jackson-annotations.git",
-                    "aaabbbcccdddeee");
-
+        void shouldParseVcsUrls() {
+            String url1 = "https://github.com/FasterXML/jackson-annotations.git";
+            VcsUrl vcsUrl1 = VcsUrl.create(url1);
+            assertEquals("git", vcsUrl1.tool());
+            assertEquals("https", vcsUrl1.transport());
+            assertEquals("github.com", vcsUrl1.host());
+            assertEquals("FasterXML/jackson-annotations.git", vcsUrl1.path());
+            assertNull(vcsUrl1.revision());
+            assertNull(vcsUrl1.subpath());
             assertEquals(
-                    "https://github.com/FasterXML/jackson-annotations.git",
-                    component.getPedigree().getCommits().get(0).getUrl());
+                    "pkg:generic/github.com/FasterXML/jackson-annotations?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2FFasterXML%2Fjackson-annotations.git",
+                    vcsUrl1.toPackageURL().toString());
+            String url2 = "git@github.com:FasterXML/jackson-annotations.git";
+            VcsUrl vcsUrl2 = VcsUrl.create(url2);
+            assertEquals("git", vcsUrl2.tool());
+            assertEquals("ssh", vcsUrl2.transport());
+            assertEquals("github.com", vcsUrl2.host());
+            assertEquals("FasterXML/jackson-annotations.git", vcsUrl2.path());
+            assertNull(vcsUrl2.revision());
+            assertNull(vcsUrl2.subpath());
+            assertEquals(
+                    "pkg:generic/github.com/FasterXML/jackson-annotations?vcs_url=git%2Bssh%3A%2F%2Fgithub.com%2FFasterXML%2Fjackson-annotations.git",
+                    vcsUrl2.toPackageURL().toString());
+            String url3 = "git+https://github.com/FasterXML/jackson-annotations.git";
+            VcsUrl vcsUrl3 = VcsUrl.create(url3);
+            assertEquals("git", vcsUrl3.tool());
+            assertEquals("https", vcsUrl3.transport());
+            assertEquals("github.com", vcsUrl3.host());
+            assertEquals("FasterXML/jackson-annotations.git", vcsUrl3.path());
+            assertNull(vcsUrl3.revision());
+            assertNull(vcsUrl3.subpath());
+            assertEquals(
+                    "pkg:generic/github.com/FasterXML/jackson-annotations?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2FFasterXML%2Fjackson-annotations.git",
+                    vcsUrl3.toPackageURL().toString());
+            String url4 = "https://github.com/FasterXML/jackson-annotations.git#version";
+            VcsUrl vcsUrl4 = VcsUrl.create(url4);
+            assertEquals("git", vcsUrl4.tool());
+            assertEquals("https", vcsUrl4.transport());
+            assertEquals("github.com", vcsUrl4.host());
+            assertEquals("FasterXML/jackson-annotations.git", vcsUrl4.path());
+            assertEquals("version", vcsUrl4.revision());
+            assertNull(vcsUrl4.subpath());
+            assertEquals(
+                    "pkg:generic/github.com/FasterXML/jackson-annotations@version?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2FFasterXML%2Fjackson-annotations.git%40version",
+                    vcsUrl4.toPackageURL().toString());
         }
 
-        @Test
-        void shouldHandleGitProtocolUrlsForPedigrees() {
+        @ParameterizedTest
+        @ValueSource(
+                strings = { "https://github.com/FasterXML/jackson-annotations.git",
+                        "git@github.com:FasterXML/jackson-annotations.git",
+                        "git+https://github.com/FasterXML/jackson-annotations.git",
+                        "https://github.com/FasterXML/jackson-annotations.git#version" })
+        void shouldHandleProtocolUrlsForPedigrees(String url) throws MalformedPackageURLException, URISyntaxException {
+            URI uri = VcsUrl.create(url).toURI();
+            Type type = Type.LIBRARY;
+            String name = "jackson-annotations";
+            String version = "2.18.3";
+            String uid = "aaabbbcccdddeee";
+            String scheme = uri.getScheme();
+            String expectedPurl = "pkg:generic/github.com/FasterXML/jackson-annotations@aaabbbcccdddeee?vcs_url=git%2B"
+                    + scheme + "%3A%2F%2Fgithub.com%2FFasterXML%2Fjackson-annotations.git"
+                    + (uri.getRawFragment() != null ? "%40" + uri.getRawFragment() : "");
             Component component = new Component();
-            SbomUtils.addPedigreeCommit(
-                    component,
-                    "git@github.com:FasterXML/jackson-annotations.git",
-                    "aaabbbcccdddeee");
-
-            assertEquals(
-                    "https://github.com/FasterXML/jackson-annotations.git",
-                    component.getPedigree().getCommits().get(0).getUrl());
+            component.setType(type);
+            component.setName(name);
+            component.setVersion(version);
+            SbomUtils.addPedigreeAncestor(component, url, uid);
+            Pedigree pedigree = component.getPedigree();
+            Ancestors ancestors = pedigree.getAncestors();
+            List<Component> components = ancestors.getComponents();
+            assertEquals(1, components.size());
+            Component component1 = components.get(0);
+            PackageURL packageURL = new PackageURL(component1.getPurl());
+            assertEquals(expectedPurl, packageURL.toString());
+            assertEquals(type, component1.getType());
+            assertEquals(name, component1.getName());
+            assertEquals(uid, component1.getVersion());
+            assertEquals(expectedPurl, component1.getBomRef());
+            assertEquals(component.getHashes(), component1.getHashes());
         }
 
         @Test
