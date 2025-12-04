@@ -17,6 +17,8 @@
  */
 package org.jboss.sbomer.cli.feature.sbom.processor;
 
+import static com.redhat.red.build.koji.model.json.KojiJsonConstants.TYPEINFO;
+import static com.redhat.red.build.koji.model.json.KojiJsonConstants.URL;
 import static org.jboss.sbomer.core.features.sbom.Constants.CONTAINER_PROPERTY_IMAGE_LABEL_COMPONENT;
 import static org.jboss.sbomer.core.features.sbom.Constants.CONTAINER_PROPERTY_IMAGE_LABEL_RELEASE;
 import static org.jboss.sbomer.core.features.sbom.Constants.CONTAINER_PROPERTY_IMAGE_LABEL_VERSION;
@@ -25,6 +27,7 @@ import static org.jboss.sbomer.core.features.sbom.Constants.SBOM_RED_HAT_ENVIRON
 import static org.jboss.sbomer.core.features.sbom.Constants.SBOM_RED_HAT_PNC_BUILD_ID;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.addHashIfMissing;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.addMrrc;
+import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.addPedigreeRemoteSource;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.getHash;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.hasExternalReference;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.setArtifactMetadata;
@@ -34,7 +37,12 @@ import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.setPublisher;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.setSupplier;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.updatePurl;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -47,6 +55,8 @@ import org.cyclonedx.model.Property;
 import org.jboss.pnc.build.finder.koji.KojiBuild;
 import org.jboss.pnc.dto.Artifact;
 import org.jboss.sbomer.cli.feature.sbom.adjuster.PncBuildAdjuster;
+import org.jboss.sbomer.cli.feature.sbom.client.CachitoClient;
+import org.jboss.sbomer.cli.feature.sbom.client.CachitoResponse;
 import org.jboss.sbomer.cli.feature.sbom.service.KojiService;
 import org.jboss.sbomer.core.errors.ApplicationException;
 import org.jboss.sbomer.core.features.sbom.enums.ProcessorType;
@@ -59,18 +69,23 @@ import com.github.packageurl.PackageURL;
 import com.redhat.red.build.koji.KojiClientException;
 import com.redhat.red.build.koji.model.xmlrpc.KojiBuildInfo;
 
+import jakarta.ws.rs.core.Response;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class DefaultProcessor implements Processor {
+    private static final String REMOTE_SOURCES = "remote-sources";
 
     protected final PncService pncService;
 
     protected final KojiService kojiService;
 
-    public DefaultProcessor(PncService pncService, KojiService kojiService) {
+    protected final CachitoClient cachitoClient;
+
+    public DefaultProcessor(PncService pncService, KojiService kojiService, CachitoClient cachitoClient) {
         this.pncService = pncService;
         this.kojiService = kojiService;
+        this.cachitoClient = cachitoClient;
     }
 
     private final Map<String, String> purlRelocations = new HashMap<>();
@@ -345,12 +360,104 @@ public class DefaultProcessor implements Processor {
         setPublisher(component);
         setSupplier(component);
 
+        addPedigreeFromBuildInfo(cachitoClient, component, buildInfo);
+
         // Add additional metadata
         setBrewBuildMetadata(
                 component,
                 String.valueOf(buildInfo.getId()),
-                Optional.of(buildInfo.getSource()),
+                Optional.ofNullable(buildInfo.getSource()),
                 kojiService.getConfig().getKojiWebURL().toString());
+    }
+
+    private static List<Map<String, Object>> getRemoteSources(KojiBuildInfo buildInfo) {
+        Map<String, Object> extra = buildInfo.getExtra();
+
+        if (extra == null || extra.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Map<String, Object> typeinfo = (Map<String, Object>) extra.getOrDefault(TYPEINFO, Collections.emptyMap());
+        List<Map<String, Object>> remoteSources = (List<Map<String, Object>>) typeinfo
+                .getOrDefault(REMOTE_SOURCES, Collections.emptyList());
+
+        if (remoteSources.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return Collections.unmodifiableList(remoteSources);
+    }
+
+    public static Optional<URI> getUriFromBuildInfo(KojiBuildInfo buildInfo) {
+        List<Map<String, Object>> remoteSources = getRemoteSources(buildInfo);
+
+        if (remoteSources.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Map<String, Object> remoteSource = remoteSources.get(0);
+        String url = remoteSource.getOrDefault(URL, "").toString();
+
+        if (url.isEmpty()) {
+            return Optional.empty();
+        }
+
+        try {
+            URI uri = new URI(url);
+            URI newUri = new URI(uri.getScheme(), uri.getHost(), null, null);
+            return Optional.ofNullable(newUri);
+        } catch (URISyntaxException e) {
+            return Optional.empty();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public static List<String> getCachitoRequestIdsFromBuildInfo(KojiBuildInfo buildInfo) {
+        List<Map<String, Object>> remoteSources = getRemoteSources(buildInfo);
+
+        if (remoteSources.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<String> ids = new ArrayList<>(remoteSources.size());
+
+        for (Map<String, Object> remoteSource : remoteSources) {
+            String url = (String) remoteSource.getOrDefault(URL, null);
+
+            if (url == null) {
+                continue;
+            }
+
+            URI uri = URI.create(url).normalize();
+            String id = uri.getPath().replaceAll("/api/v1/requests/(\\d+)", "$1");
+            ids.add(id);
+        }
+
+        return Collections.unmodifiableList(ids);
+    }
+
+    public static void addPedigreeFromBuildInfo(
+            CachitoClient cachitoClient,
+            Component component,
+            KojiBuildInfo buildInfo) {
+        Optional<URI> buildUri = getUriFromBuildInfo(buildInfo);
+        List<String> ids = getCachitoRequestIdsFromBuildInfo(buildInfo);
+
+        for (String id : ids) {
+            Response response = cachitoClient.getRequestById(id);
+            int status = response.getStatus();
+
+            if (status != Response.Status.OK.getStatusCode()) {
+                log.warn("Unable to retrieve Cachito request with ID '{}', status: {}", id, status);
+                continue;
+            }
+
+            CachitoResponse cachitoResponse = response.readEntity(CachitoResponse.class);
+            String repo = cachitoResponse.getRepo();
+            String ref = cachitoResponse.getRef();
+            log.debug("Adding pedigree from Cachito request with ID '{}', repo: '{}', ref: '{}'", id, repo, ref);
+            addPedigreeRemoteSource(component, repo, ref);
+        }
     }
 
     @Override

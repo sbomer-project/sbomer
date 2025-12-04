@@ -34,11 +34,13 @@ import org.cyclonedx.model.Commit;
 import org.cyclonedx.model.Component;
 import org.cyclonedx.model.ExternalReference;
 import org.cyclonedx.model.Hash;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.hamcrest.CoreMatchers;
 import org.jboss.pnc.dto.Artifact;
 import org.jboss.pnc.dto.Build;
 import org.jboss.pnc.dto.Environment;
 import org.jboss.pnc.dto.SCMRepository;
+import org.jboss.sbomer.cli.feature.sbom.client.CachitoClient;
 import org.jboss.sbomer.cli.feature.sbom.command.AbstractMavenGenerateCommand;
 import org.jboss.sbomer.cli.feature.sbom.command.DefaultProcessCommand;
 import org.jboss.sbomer.cli.feature.sbom.command.GenerateCommand;
@@ -71,6 +73,10 @@ class DefaultProcessCommandIT {
 
     @InjectMock
     KojiService kojiService;
+
+    @InjectMock
+    @RestClient
+    CachitoClient cachitoClient;
 
     @InjectMock
     BuildFinderConfigProvider buildFinderConfigProvider;
