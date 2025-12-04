@@ -75,6 +75,7 @@
     <version.rsql-parser>2.1.0</version.rsql-parser>
     <version.rsql-jpa>v2023.35.5</version.rsql-jpa>
     <version.commons-cli>1.10.0</version.commons-cli>
+    <version.commons-lang3>3.19.0</version.commons-lang3>
     <version.quarkus-test-artemis>3.1.2</version.quarkus-test-artemis>
     <version.build-finder>2.6.6</version.build-finder>
     <version.mapstruct>1.6.3</version.mapstruct>
@@ -91,7 +92,6 @@
     <!-- Sonar: Allow for injection -->
     <sonar.issue.ignore.multicriteria.i1.ruleKey>java:S6813</sonar.issue.ignore.multicriteria.i1.ruleKey>
     <sonar.issue.ignore.multicriteria.i1.resourceKey>**/*.java</sonar.issue.ignore.multicriteria.i1.resourceKey>
-
   </properties>
 
   <dependencyManagement>
