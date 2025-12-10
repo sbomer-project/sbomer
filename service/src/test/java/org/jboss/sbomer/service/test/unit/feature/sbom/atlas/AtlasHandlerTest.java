@@ -68,6 +68,8 @@ class AtlasHandlerTest {
 
         FeatureFlags featureFlags = mock(FeatureFlags.class);
         when(featureFlags.atlasPublish()).thenReturn(true);
+        when(featureFlags.atlasReleasePublish()).thenReturn(true);
+        when(featureFlags.atlasBuildPublish()).thenReturn(true);
         atlasHandler.setFeatureFlags(featureFlags);
 
         atlasHandler.setAtlasBuildClient(atlasBuildClient);

@@ -56,6 +56,8 @@ public class FeatureFlags implements UnleashSubscriber {
 
     // Atlas
     public static final String TOGGLE_ATLAS_PUBLISH = "atlas-publish";
+    public static final String TOGGLE_ATLAS_RELEASE_PUBLISH = "atlas-release-publish";
+    public static final String TOGGLE_ATLAS_BUILD_PUBLISH = "atlas-build-publish";
 
     // Errata
     public static final String TOGGLE_ERRATA_INTEGRATION = "errata-integration";
@@ -88,6 +90,12 @@ public class FeatureFlags implements UnleashSubscriber {
 
     @ConfigProperty(name = "SBOMER_FEATURE_ATLAS_PUBLISH_ENABLED", defaultValue = "false")
     boolean publishToAtlas;
+
+    @ConfigProperty(name = "SBOMER_FEATURE_ATLAS_PUBLISH_BUILD_ENABLED", defaultValue = "false")
+    boolean publishToAtlasBuild;
+
+    @ConfigProperty(name = "SBOMER_FEATURE_ATLAS_PUBLISH_RELEASE_ENABLED", defaultValue = "false")
+    boolean publishToAtlasRelease;
 
     @ConfigProperty(name = "SBOMER_FEATURE_ERRATA_INTEGRATION_ENABLED", defaultValue = "false")
     boolean errataIntegration;
@@ -134,9 +142,22 @@ public class FeatureFlags implements UnleashSubscriber {
     }
 
     /**
-     * Returns {@code true} if publishing SBOMs to Atlas is enabled.
+     * Returns {@code true} if storing logs in S3 bucket is enabled.
      *
-     * @return {@code true} if publishing SBOMs to Atlas is enabled, {@code false} otherwise
+     * @return {@code true} if s3 support for logs is enabled, {@code false} otherwise
+     */
+    public boolean atlasReleasePublish() {
+        return unleash.isEnabled(TOGGLE_ATLAS_RELEASE_PUBLISH, publishToAtlasRelease);
+    }
+
+    public boolean atlasBuildPublish() {
+        return unleash.isEnabled(TOGGLE_ATLAS_BUILD_PUBLISH, publishToAtlasBuild);
+    }
+
+    /**
+     * Returns {@code true} if storing logs in S3 bucket is enabled.
+     *
+     * @return {@code true} if s3 support for logs is enabled, {@code false} otherwise
      */
     public boolean atlasPublish() {
         return unleash.isEnabled(TOGGLE_ATLAS_PUBLISH, publishToAtlas);
@@ -248,6 +269,8 @@ public class FeatureFlags implements UnleashSubscriber {
                 TOGGLE_NOTIFY_OPERATION,
                 TOGGLE_NOTIFY_ANALYSIS,
                 TOGGLE_ATLAS_PUBLISH,
+                TOGGLE_ATLAS_BUILD_PUBLISH,
+                TOGGLE_ATLAS_RELEASE_PUBLISH,
                 TOGGLE_ERRATA_INTEGRATION,
                 TOGGLE_STANDARD_ERRATA_RPM_MANIFEST_GENERATION,
                 TOGGLE_STANDARD_ERRATA_IMAGE_MANIFEST_GENERATION,
