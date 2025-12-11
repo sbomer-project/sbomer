@@ -74,12 +74,6 @@ public class AtlasHandler {
             return;
         }
 
-        if (!featureFlags.atlasPublish()) {
-            throw new FeatureDisabledException(
-                    "Atlas integration is disabled, following manifests will not be published to Atlas: {}",
-                    sboms.stream().map(Sbom::getId).collect(Collectors.joining(", ")));
-        }
-
         AtlasClient atlasClient = isRelease ? atlasReleaseClient : atlasBuildClient;
         String atlasInstanceName = isRelease ? "release" : "build";
 
