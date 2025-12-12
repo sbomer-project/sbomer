@@ -19,6 +19,7 @@ package org.jboss.sbomer.service.feature.sbom.atlas;
 
 import static org.jboss.sbomer.core.rest.faulttolerance.Constants.ATLAS_CLIENT_DELAY;
 import static org.jboss.sbomer.core.rest.faulttolerance.Constants.ATLAS_CLIENT_MAX_RETRIES;
+import static org.jboss.sbomer.core.rest.faulttolerance.Constants.ATLAS_CLIENT_MAX_DURATION;
 
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
@@ -47,7 +48,7 @@ import jakarta.ws.rs.core.MediaType;
 public interface AtlasClient {
 
     @POST
-    @Retry(maxRetries = ATLAS_CLIENT_MAX_RETRIES, delay = ATLAS_CLIENT_DELAY, delayUnit = ChronoUnit.SECONDS)
+    @Retry(maxRetries = ATLAS_CLIENT_MAX_RETRIES, delay = ATLAS_CLIENT_DELAY, delayUnit = ChronoUnit.SECONDS, maxDuration = ATLAS_CLIENT_MAX_DURATION, durationUnit = ChronoUnit.SECONDS)
     @ExponentialBackoff
     @BeforeRetry(RetryLogger.class)
     void upload(@QueryParam("labels") Map<String, String> labels, JsonNode bom);

@@ -22,14 +22,15 @@ public class Constants {
     public static final int PNC_CLIENT_MAX_RETRIES = 10;
     public static final int ERRATA_CLIENT_MAX_RETRIES = 15;
     public static final int PYXIS_CLIENT_MAX_RETRIES = 15;
-    public static final int ATLAS_CLIENT_MAX_RETRIES = 15;
+    public static final int ATLAS_CLIENT_MAX_RETRIES = 9;
     public static final int KOJI_DOWNLOAD_CLIENT_MAX_RETRIES = 15;
     public static final int SBOMER_CLIENT_MAX_RETRIES = 15;
 
     public static final long PNC_CLIENT_DELAY = 1;
     public static final long ERRATA_CLIENT_DELAY = 1;
     public static final long PYXIS_CLIENT_DELAY = 1;
-    public static final long ATLAS_CLIENT_DELAY = 1;
+    public static final long ATLAS_CLIENT_DELAY = 60;
+    public static final long ATLAS_CLIENT_MAX_DURATION = 18000; //5hrs
     public static final long KOJI_DOWNLOAD_CLIENT_DELAY = 1;
     public static final long SBOMER_CLIENT_DELAY = 1;
 
