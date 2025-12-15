@@ -76,10 +76,9 @@ quarkus:
     traces:
       enabled: true
       sampler: always_on
+      suppress-non-application-uris: false
     metrics:
       enabled: true
-      exemplar:
-        filter: always_on
     logs:
       enabled: false
 
