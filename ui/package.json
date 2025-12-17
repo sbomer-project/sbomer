@@ -74,8 +74,6 @@
     "webpack-merge": "^6.0.0"
   },
   "dependencies": {
-    "@carbon/react": "^1.88.0",
-    "@carbon/styles": "^1.87.0",
     "@melloware/react-logviewer": "^6.0.0",
     "@patternfly/react-core": "6.3.1",
     "@patternfly/react-icons": "6.3.1",
