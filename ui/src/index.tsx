@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import AppSwitcherWrapper from "./AppSwitcherWrapper";
+import App from "./app";
 
 
 if (process.env.NODE_ENV !== "production") {
@@ -21,6 +21,6 @@ const root = ReactDOM.createRoot(document.getElementById("root") as Element);
 
 root.render(
   <React.StrictMode>
-    <AppSwitcherWrapper />
+    <App/>
   </React.StrictMode>
 );
