@@ -40,23 +40,14 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
         </MastheadLogo></MastheadBrand>
       </MastheadMain>
       <MastheadContent>
-              <Flex style={{ marginLeft: 'auto', alignItems: 'center', gap: '1rem' }}>
-                <FlexItem>
-                  <span style={{ fontWeight: 'bold', fontSize: '1.1rem', letterSpacing: '1px' }}>
-                  SBOMER CLASSIC
-                </span>
-                </FlexItem>
-                <FlexItem>
-                  <Button
-                  variant="primary"
-                  onClick={() => window.location.pathname !== '/nextgen' && (window.location.href = '/nextgen')}
-                >
-                  Go to Next Gen
-                </Button>
-                </FlexItem>
-
-              </Flex>
-            </MastheadContent>
+        <Flex style={{ marginLeft: 'auto', alignItems: 'center', gap: '1rem' }}>
+          <FlexItem>
+            <span style={{ fontWeight: 'bold', fontSize: '1.1rem', letterSpacing: '1px' }}>
+              SBOMER CLASSIC
+            </span>
+          </FlexItem>
+        </Flex>
+      </MastheadContent>
     </Masthead>
   );
 
