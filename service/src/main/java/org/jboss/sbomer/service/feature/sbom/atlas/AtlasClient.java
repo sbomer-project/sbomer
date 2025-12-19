@@ -17,9 +17,10 @@
  */
 package org.jboss.sbomer.service.feature.sbom.atlas;
 
+import static org.jboss.sbomer.core.rest.faulttolerance.Constants.ATLAS_CLIENT_BACKOFF_MAX_DELAY;
 import static org.jboss.sbomer.core.rest.faulttolerance.Constants.ATLAS_CLIENT_DELAY;
-import static org.jboss.sbomer.core.rest.faulttolerance.Constants.ATLAS_CLIENT_MAX_RETRIES;
 import static org.jboss.sbomer.core.rest.faulttolerance.Constants.ATLAS_CLIENT_MAX_DURATION;
+import static org.jboss.sbomer.core.rest.faulttolerance.Constants.ATLAS_CLIENT_MAX_RETRIES;
 
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
@@ -48,8 +49,13 @@ import jakarta.ws.rs.core.MediaType;
 public interface AtlasClient {
 
     @POST
-    @Retry(maxRetries = ATLAS_CLIENT_MAX_RETRIES, delay = ATLAS_CLIENT_DELAY, delayUnit = ChronoUnit.SECONDS, maxDuration = ATLAS_CLIENT_MAX_DURATION, durationUnit = ChronoUnit.SECONDS)
-    @ExponentialBackoff
+    @Retry(
+            maxRetries = ATLAS_CLIENT_MAX_RETRIES,
+            delay = ATLAS_CLIENT_DELAY,
+            delayUnit = ChronoUnit.SECONDS,
+            maxDuration = ATLAS_CLIENT_MAX_DURATION,
+            durationUnit = ChronoUnit.SECONDS)
+    @ExponentialBackoff(maxDelay = ATLAS_CLIENT_BACKOFF_MAX_DELAY, maxDelayUnit = ChronoUnit.SECONDS)
     @BeforeRetry(RetryLogger.class)
     void upload(@QueryParam("labels") Map<String, String> labels, JsonNode bom);
 

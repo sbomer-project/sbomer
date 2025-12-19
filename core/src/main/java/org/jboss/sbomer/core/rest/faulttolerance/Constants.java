@@ -30,7 +30,8 @@ public class Constants {
     public static final long ERRATA_CLIENT_DELAY = 1;
     public static final long PYXIS_CLIENT_DELAY = 1;
     public static final long ATLAS_CLIENT_DELAY = 60;
-    public static final long ATLAS_CLIENT_MAX_DURATION = 18000; //5hrs
+    public static final long ATLAS_CLIENT_MAX_DURATION = 18000; // (in seconds) - 5hrs
+    public static final long ATLAS_CLIENT_BACKOFF_MAX_DELAY = 3600; // (in seconds) - 1 hour
     public static final long KOJI_DOWNLOAD_CLIENT_DELAY = 1;
     public static final long SBOMER_CLIENT_DELAY = 1;
 
