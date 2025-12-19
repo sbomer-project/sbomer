@@ -59,7 +59,7 @@
     Operator SDK extension version defined below ("version.quarkus-operator-sdk").
     -->
     <version.quarkus-platform>3.20.3</version.quarkus-platform>
-    <version.quarkus-operator-sdk>7.1.4</version.quarkus-operator-sdk>
+    <version.quarkus-operator-sdk>7.4.0</version.quarkus-operator-sdk>
 
     <version.cyclonedx>9.1.0-patch</version.cyclonedx>
     <version.lombok>1.18.32</version.lombok>
