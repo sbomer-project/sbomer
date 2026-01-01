@@ -61,6 +61,7 @@
     <version.quarkus-platform>3.20.3</version.quarkus-platform>
     <version.quarkus-operator-sdk>7.1.4</version.quarkus-operator-sdk>
 
+    <version.central-publishing-maven-plugin>0.8.0</version.central-publishing-maven-plugin>
     <version.cyclonedx>9.1.0-patch</version.cyclonedx>
     <version.lombok>1.18.32</version.lombok>
     <version.pnc>3.1.5</version.pnc>
@@ -234,21 +235,17 @@
             <autoVersionSubmodules>true</autoVersionSubmodules>
             <useReleaseProfile>false</useReleaseProfile>
             <releaseProfiles>release</releaseProfiles>
-            <stagingRepository>
-              https://oss.sonatype.org/service/local/staging/deploy/maven2/
-            </stagingRepository>
             <goals>deploy</goals>
           </configuration>
         </plugin>
         <plugin>
-          <groupId>org.sonatype.plugins</groupId>
-          <artifactId>nexus-staging-maven-plugin</artifactId>
-          <version>1.7.0</version>
+          <groupId>org.sonatype.central</groupId>
+          <artifactId>central-publishing-maven-plugin</artifactId>
+          <version>${version.central-publishing-maven-plugin}</version>
           <extensions>true</extensions>
           <configuration>
-            <serverId>ossrh</serverId>
-            <nexusUrl>https://oss.sonatype.org/</nexusUrl>
-            <autoReleaseAfterClose>false</autoReleaseAfterClose>
+              <!-- as defined in your settings.xml -->
+              <publishingServerId>central-publisher</publishingServerId>
           </configuration>
         </plugin>
       </plugins>
