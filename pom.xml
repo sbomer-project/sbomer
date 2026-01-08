@@ -79,7 +79,7 @@
     <version.quarkus-test-artemis>3.1.2</version.quarkus-test-artemis>
     <version.build-finder>2.6.6</version.build-finder>
     <version.mapstruct>1.6.3</version.mapstruct>
-    <version.jandex>3.4.0</version.jandex>
+    <version.jandex>3.5.3</version.jandex>
     <version.tsid>5.2.6</version.tsid>
     <version.opentelemetry-ext-cli-java>1.3.0</version.opentelemetry-ext-cli-java>
     <version.antlr>4.13.2</version.antlr>
