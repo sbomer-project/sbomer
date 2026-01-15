@@ -22,7 +22,7 @@ sbomer:
     default-generator: maven-cyclonedx
     generators:
       maven-domino:
-        default-version: "0.0.120"
+        default-version: "0.0.127"
         default-args: "--warn-on-missing-scm --legacy-scm-locator --hashes=false"
       maven-cyclonedx:
         default-version: "2.9.0"

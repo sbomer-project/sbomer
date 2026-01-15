@@ -28,7 +28,7 @@ Run the `java -jar domino.jar report --help` command to get a list of all possib
 
 === `version`
 
-Default version: `0.0.120`.
+Default version: `0.0.127`.
 
 == Execution
 

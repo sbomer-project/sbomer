@@ -112,7 +112,7 @@ buildId: A7IGVJ7N2DYAA
 //     generator:
 //       type: maven-domino
 //       args: "--config-file .domino/cccddd.json --warn-on-missing-scm"
-//       version: "0.0.120"
+//       version: "0.0.127"
 
 //   - processors:
 //       - type: redhat-product

@@ -133,7 +133,7 @@ public class GenerationsV1Beta1 {
                             @ExampleObject(
                                     name = "PNC build with one product defined and a custom generator",
                                     description = "Requests manifest generation for a PNC build with identifier: ARYT3LBXDVYAC with custom generator parameters",
-                                    value = "{\"type\": \"pnc-build\", \"buildId\": \"ARYT3LBXDVYAC\", \"products\":[{\"generator\":{\"type\":\"maven-domino\",\"args\":\"--warn-on-missing-scm --legacy-scm-locator --hashes=false\",\"version\":\"0.0.120\"}}]}"),
+                                    value = "{\"type\": \"pnc-build\", \"buildId\": \"ARYT3LBXDVYAC\", \"products\":[{\"generator\":{\"type\":\"maven-domino\",\"args\":\"--warn-on-missing-scm --legacy-scm-locator --hashes=false\",\"version\":\"0.0.127\"}}]}"),
                             @ExampleObject(
                                     name = "PNC operation",
                                     description = "Requests manifest generation for a PNC operation with identifier: A5WL3DFZ3AIAA",
