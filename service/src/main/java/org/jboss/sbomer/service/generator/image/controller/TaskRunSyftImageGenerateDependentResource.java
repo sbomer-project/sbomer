@@ -18,15 +18,17 @@
 package org.jboss.sbomer.service.generator.image.controller;
 
 import java.text.ParseException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.sbomer.core.errors.ApplicationException;
 import org.jboss.sbomer.core.features.sbom.config.SyftImageConfig;
 import org.jboss.sbomer.core.features.sbom.enums.GenerationRequestType;
 import org.jboss.sbomer.core.features.sbom.utils.MDCUtils;
+import org.jboss.sbomer.service.feature.FeatureFlags;
 import org.jboss.sbomer.service.feature.sbom.k8s.model.GenerationRequest;
 import org.jboss.sbomer.service.feature.sbom.k8s.model.SbomGenerationPhase;
 import org.jboss.sbomer.service.feature.sbom.k8s.resources.Labels;
@@ -65,6 +67,9 @@ public class TaskRunSyftImageGenerateDependentResource
     @Inject
     KubernetesClient client;
 
+    @Inject
+    protected FeatureFlags featureFlags;
+
     TaskRunSyftImageGenerateDependentResource() {
         super(TaskRun.class);
     }
@@ -101,6 +106,23 @@ public class TaskRunSyftImageGenerateDependentResource
 
         String rpmsParam = Boolean.toString(generationRequest.getConfig(SyftImageConfig.class).isIncludeRpms());
 
+        // Determine paths based on feature flag and config
+        List<String> paths = generationRequest.getConfig(SyftImageConfig.class).getPaths();
+        if (featureFlags.syftManifestOptEnabled()) {
+            // When feature flag is enabled, append "/opt" to the paths
+            List<String> effectivePaths = new ArrayList<>();
+            if (paths != null && !paths.isEmpty()) {
+                effectivePaths.addAll(paths);
+            }
+            if (!effectivePaths.contains("/opt")) {
+                effectivePaths.add("/opt");
+            }
+            paths = effectivePaths;
+            log.debug("Syft manifest optimization enabled, using paths: {}", paths);
+        } else if (paths == null) {
+            paths = Collections.emptyList();
+        }
+
         // TODO: Disabled for now
         // TektonResourceUtils.adjustComputeResources(taskRun);
 
@@ -125,13 +147,7 @@ public class TaskRunSyftImageGenerateDependentResource
                         new ParamBuilder().withName(PARAM_PROCESSORS)
                                 .withNewValue(generationRequest.getConfig().toProcessorsCommand())
                                 .build(),
-                        new ParamBuilder().withName(PARAM_PATHS)
-                                .withValue(
-                                        new ParamValue(
-                                                Objects.requireNonNullElse(
-                                                        generationRequest.getConfig(SyftImageConfig.class).getPaths(),
-                                                        Collections.emptyList())))
-                                .build(),
+                        new ParamBuilder().withName(PARAM_PATHS).withValue(new ParamValue(paths)).build(),
                         new ParamBuilder().withName(PARAM_RPMS).withValue(new ParamValue(rpmsParam)).build())
                 .withTaskRef(new TaskRefBuilder().withName(release + TASK_SUFFIX).build())
 

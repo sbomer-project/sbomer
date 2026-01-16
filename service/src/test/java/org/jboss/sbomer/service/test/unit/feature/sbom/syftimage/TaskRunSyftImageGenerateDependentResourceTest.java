@@ -1,12 +1,14 @@
 package org.jboss.sbomer.service.test.unit.feature.sbom.syftimage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.when;
 
 import java.text.ParseException;
 import java.util.Collections;
 
 import org.jboss.sbomer.core.features.sbom.config.SyftImageConfig;
 import org.jboss.sbomer.core.features.sbom.enums.GenerationRequestType;
+import org.jboss.sbomer.service.feature.FeatureFlags;
 import org.jboss.sbomer.service.feature.sbom.k8s.model.GenerationRequest;
 import org.jboss.sbomer.service.feature.sbom.k8s.model.GenerationRequestBuilder;
 import org.jboss.sbomer.service.generator.image.controller.TaskRunSyftImageGenerateDependentResource;
@@ -22,10 +24,11 @@ import io.javaoperatorsdk.operator.api.reconciler.Context;
 class TaskRunSyftImageGenerateDependentResourceTest {
     static class TaskRunSyftImageGenerateDependentResourceAlt extends TaskRunSyftImageGenerateDependentResource {
 
-        TaskRunSyftImageGenerateDependentResourceAlt() {
+        TaskRunSyftImageGenerateDependentResourceAlt(FeatureFlags featureFlags) {
             super(TaskRun.class);
 
             this.release = "sbomer";
+            this.featureFlags = featureFlags;
         }
 
         public TaskRunSyftImageGenerateDependentResourceAlt(Class<TaskRun> resourceType) {
@@ -40,7 +43,11 @@ class TaskRunSyftImageGenerateDependentResourceTest {
 
     @Test
     void testDefaultConfig() throws ParseException {
-        TaskRunSyftImageGenerateDependentResourceAlt res = new TaskRunSyftImageGenerateDependentResourceAlt();
+        FeatureFlags mockFeatureFlags = Mockito.mock(FeatureFlags.class);
+        when(mockFeatureFlags.syftManifestOptEnabled()).thenReturn(false);
+
+        TaskRunSyftImageGenerateDependentResourceAlt res = new TaskRunSyftImageGenerateDependentResourceAlt(
+                mockFeatureFlags);
 
         GenerationRequest generationRequest = new GenerationRequestBuilder(GenerationRequestType.CONTAINERIMAGE)
                 .withId("oneone")
@@ -81,7 +88,11 @@ class TaskRunSyftImageGenerateDependentResourceTest {
 
     @Test
     void allowToEnableRpms() {
-        TaskRunSyftImageGenerateDependentResourceAlt res = new TaskRunSyftImageGenerateDependentResourceAlt();
+        FeatureFlags mockFeatureFlags = Mockito.mock(FeatureFlags.class);
+        when(mockFeatureFlags.syftManifestOptEnabled()).thenReturn(false);
+
+        TaskRunSyftImageGenerateDependentResourceAlt res = new TaskRunSyftImageGenerateDependentResourceAlt(
+                mockFeatureFlags);
 
         SyftImageConfig config = new SyftImageConfig();
         config.setIncludeRpms(true);
