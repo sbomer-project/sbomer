@@ -19,6 +19,7 @@ package org.jboss.sbomer.service.rest.api.v1beta1;
 
 import static org.jboss.sbomer.service.feature.sbom.UserRoles.USER_DELETE_ROLE;
 
+import java.util.Collections;
 import java.util.List;
 
 import org.eclipse.microprofile.context.ManagedExecutor;
@@ -231,7 +232,10 @@ public class GenerationsV1Beta1 {
                     log.info("Starting asynchronous container image for generation request: {}", request.getId());
                     sbomService.generateSyftImage(
                             request,
-                            SyftImageConfig.builder().withImage(imageConfig.getImage()).build());
+                            SyftImageConfig.builder()
+                                    .withImage(imageConfig.getImage())
+                                    .withPaths(Collections.singletonList("/opt"))
+                                    .build());
                     log.info("Completed asynchronous container image for generation request: {}", request.getId());
                 } catch (Exception e) {
                     log.error(
