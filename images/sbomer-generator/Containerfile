@@ -2,7 +2,7 @@
 FROM registry.access.redhat.com/ubi9@sha256:dec374e05cc13ebbc0975c9f521f3db6942d27f8ccdf06b180160490eef8bdbc
 
 RUN dnf -y --noplugins --setopt=install_weak_deps=0 --setopt=tsflags=nodocs upgrade
-RUN INSTALL_PKGS="jq wget unzip zip git skopeo" && \
+RUN INSTALL_PKGS="jq wget unzip zip git skopeo glibc-langpack-en" && \
     dnf --disableplugin=subscription-manager -y --nodocs --setopt=install_weak_deps=0 install $INSTALL_PKGS && \
     dnf clean all && \
     rm -rf /var/cache/* /var/log/dnf* /var/log/yum.*
@@ -13,7 +13,10 @@ RUN chmod a+x /usr/local/bin/yq
 WORKDIR /workdir
 
 ENV HOME=/workdir \
-    SBOMER_DOMINO_DIR="/workdir/domino"
+    SBOMER_DOMINO_DIR="/workdir/domino" \
+    LANG=en_US.UTF-8 \
+    LANGUAGE=en_US:en \
+    LC_ALL=en_US.UTF-8
 
 COPY certs/2022-IT-Root-CA.pem /etc/pki/ca-trust/source/anchors/2022-IT-Root-CA.pem
 COPY certs/2015-IT-Root-CA.pem /etc/pki/ca-trust/source/anchors/2015-IT-Root-CA.pem
