@@ -122,8 +122,11 @@ public abstract class AbstractAdjuster implements Adjuster {
             }
         }
 
-        // If its generic purl then try and aquire a version from the filename
-        SbomUtils.setPurlVersionFromGeneric(metadataComponent);
+        // If its generic purl then try and acquire a version from the filename
+        // Read feature flag from environment variable set by Tekton Task parameter
+        String envValue = System.getenv("SBOMER_FEATURE_GENERIC_COMPONENT_PURL_VERSION_REGEX_ENABLED");
+        boolean featureFlagEnabled = Boolean.parseBoolean(envValue != null ? envValue : "false");
+        SbomUtils.setPurlVersionFromGeneric(metadataComponent, featureFlagEnabled);
 
         // Set main component
         bom.getMetadata().setComponent(metadataComponent);

@@ -51,6 +51,7 @@ import org.jboss.sbomer.core.features.sbom.utils.GenericPurlWrapperUtil;
 import org.jboss.sbomer.core.features.sbom.utils.ObjectMapperProvider;
 import org.jboss.sbomer.core.features.sbom.utils.SbomUtils;
 import org.jboss.sbomer.core.test.TestResources;
+import org.jboss.sbomer.service.feature.FeatureFlags;
 import org.jboss.sbomer.service.feature.sbom.atlas.AtlasHandler;
 import org.jboss.sbomer.service.feature.sbom.errata.ErrataClient;
 import org.jboss.sbomer.service.feature.sbom.errata.dto.Errata;
@@ -108,6 +109,7 @@ class ReleaseAdvisoryEventsListenerTest {
     final SbomGenerationRequestRepository generationRequestRepository = mock(SbomGenerationRequestRepository.class);
     final RequestEventRepository requestEventRepository = mock(RequestEventRepository.class);
     final AtlasHandler atlasHandler = mock(AtlasHandler.class);
+    final FeatureFlags featureFlags = mock(FeatureFlags.class);
 
     private static void printRawBom(Bom bom) {
         try {
@@ -739,6 +741,9 @@ class ReleaseAdvisoryEventsListenerTest {
         listenerTextOnlyManifests.setGenerationRequestRepository(generationRequestRepository);
         listenerTextOnlyManifests.setRequestEventRepository(requestEventRepository);
         listenerTextOnlyManifests.setAtlasHandler(atlasHandler);
+        listenerTextOnlyManifests.setFeatureFlags(featureFlags);
+
+        when(featureFlags.genericComponentPurlVersionRegexEnabled()).thenReturn(false);
 
         String cpeText = "cpe:/a:redhat:quarkus:2.13";
         Errata errata = loadErrata("textOnly/manifests/errata.json");
@@ -791,6 +796,9 @@ class ReleaseAdvisoryEventsListenerTest {
         listenerTextOnlyDeliverables.setGenerationRequestRepository(generationRequestRepository);
         listenerTextOnlyDeliverables.setRequestEventRepository(requestEventRepository);
         listenerTextOnlyDeliverables.setAtlasHandler(atlasHandler);
+        listenerTextOnlyDeliverables.setFeatureFlags(featureFlags);
+
+        when(featureFlags.genericComponentPurlVersionRegexEnabled()).thenReturn(false);
 
         String cpeText = "cpe:/a:redhat:quarkus:3.2::el8";
         Errata errata = loadErrata("textOnly/deliverables/errata.json");

@@ -28,6 +28,7 @@ import org.cyclonedx.model.component.evidence.Identity;
 import org.jboss.sbomer.core.errors.ApplicationException;
 import org.jboss.sbomer.core.features.sbom.enums.RequestEventStatus;
 import org.jboss.sbomer.core.features.sbom.utils.SbomUtils;
+import org.jboss.sbomer.service.feature.FeatureFlags;
 import org.jboss.sbomer.service.feature.errors.FeatureDisabledException;
 import org.jboss.sbomer.service.feature.sbom.atlas.AtlasHandler;
 import org.jboss.sbomer.service.feature.sbom.errata.ErrataClient;
@@ -80,6 +81,9 @@ public class AbstractEventsListener {
 
     @Inject
     AtlasHandler atlasHandler;
+
+    @Inject
+    protected FeatureFlags featureFlags;
 
     @Transactional(value = Transactional.TxType.REQUIRES_NEW)
     protected void markRequestFailed(

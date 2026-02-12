@@ -1765,6 +1765,16 @@ public class SbomUtils {
      * Most of this functionality lives in GenericPurlWrapperUtil
      */
     public static void setPurlVersionFromGeneric(Component c) {
+        setPurlVersionFromGeneric(c, false);
+    }
+
+    /**
+     * Set the version of a generic PURL by extracting it from the filename.
+     *
+     * @param c the component to update
+     * @param updateComponentPurl if true, also update the component.purl field (controlled by feature flag)
+     */
+    public static void setPurlVersionFromGeneric(Component c, boolean updateComponentPurl) {
         // Grab toplevel and evidence purls
         final Optional<PackageURL> topLevelPurl = Optional.ofNullable(c.getPurl()).map(purl -> {
             try {
@@ -1827,8 +1837,31 @@ public class SbomUtils {
             // We couldn't get a version, dont do anything
             if (newEvidencePurl.getVersionedPurl() == null)
                 return;
-            // Build our new Idententy Object and either append or replace
+
+            // Build our new Identity Object and either append or replace
             appendOrReplaceIdentity(c, newEvidencePurl.getPackageURL(), newEvidencePurl.getAsIdentity(), true);
+
+            // If feature flag is enabled and the top-level component purl is a generic purl without version,
+            // update it with the versioned purl
+            if (updateComponentPurl && topLevelPurl.isPresent()) {
+                PackageURL topLevel = topLevelPurl.get();
+                if ("generic".equals(topLevel.getType())
+                        && (topLevel.getVersion() == null || topLevel.getVersion().isBlank())) {
+                    try {
+                        GenericPurlWrapperUtil componentPurlWrapper = new GenericPurlWrapperUtil(topLevel);
+                        PackageURL versionedComponentPurl = componentPurlWrapper.getVersionedPurl();
+                        if (versionedComponentPurl != null) {
+                            c.setPurl(versionedComponentPurl.canonicalize());
+                            log.debug(
+                                    "Updated component purl from {} to {}",
+                                    topLevel.canonicalize(),
+                                    versionedComponentPurl.canonicalize());
+                        }
+                    } catch (MalformedPackageURLException e) {
+                        log.warn("Can't extract version from component generic purl: {}", e.getMessage());
+                    }
+                }
+            }
         } catch (MalformedPackageURLException e) {
             log.warn("Can't extract version from generic purl with error: {}", e);
         }

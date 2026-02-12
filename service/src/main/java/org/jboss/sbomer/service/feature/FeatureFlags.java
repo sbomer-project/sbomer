@@ -72,6 +72,9 @@ public class FeatureFlags implements UnleashSubscriber {
     // Syft
     public static final String TOGGLE_SYFT_MANIFEST_OPT = "syft-manifest-opt";
 
+    // Generic PURL version guessing
+    public static final String TOGGLE_GENERIC_COMPONENT_PURL_VERSION_REGEX = "generic-component-purl-version-regex";
+
     /**
      * A map holding all toggle values we are interested in. This is used for logging purposes. We are retrieving the
      * state of the toggle via {@link Unleash} object instead.
@@ -124,6 +127,9 @@ public class FeatureFlags implements UnleashSubscriber {
 
     @ConfigProperty(name = "SBOMER_FEATURE_SYFT_MANIFEST_OPT_ENABLED", defaultValue = "false")
     boolean syftManifestOpt;
+
+    @ConfigProperty(name = "SBOMER_FEATURE_GENERIC_COMPONENT_PURL_VERSION_REGEX_ENABLED", defaultValue = "false")
+    boolean genericComponentPurlVersionRegexEnabled;
 
     /**
      * Returns {@code true} in case the dry-run mode is enabled.
@@ -252,6 +258,15 @@ public class FeatureFlags implements UnleashSubscriber {
     }
 
     /**
+     * Returns {@code true} if generic component PURL version regex extraction is enabled.
+     *
+     * @return {@code true} if generic component PURL version regex extraction is enabled, {@code false} otherwise
+     */
+    public boolean genericComponentPurlVersionRegexEnabled() {
+        return unleash.isEnabled(TOGGLE_GENERIC_COMPONENT_PURL_VERSION_REGEX, genericComponentPurlVersionRegexEnabled);
+    }
+
+    /**
      * Returns {@code true} if we should send a UMB message for a successfully generated manifest where the generation
      * request source is of a given type.
      *
@@ -286,7 +301,8 @@ public class FeatureFlags implements UnleashSubscriber {
                 TOGGLE_STANDARD_ERRATA_RPM_RELEASE_MANIFEST_GENERATION,
                 TOGGLE_STANDARD_ERRATA_IMAGE_RELEASE_MANIFEST_GENERATION,
                 TOGGLE_TEXTONLY_ERRATA_RELEASE_MANIFEST_GENERATION,
-                TOGGLE_SYFT_MANIFEST_OPT)) {
+                TOGGLE_SYFT_MANIFEST_OPT,
+                TOGGLE_GENERIC_COMPONENT_PURL_VERSION_REGEX)) {
             FeatureToggle toggle = toggleResponse.getToggleCollection().getToggle(toggleName);
             Boolean previousValue = toggleValues.put(toggleName, toggle.isEnabled());
 

@@ -695,4 +695,86 @@ class SbomUtilsTest {
             fail(e);
         }
     }
+
+    @Test
+    void testSetPurlVersionFromGenericWithFeatureFlagEnabled() {
+        String inputPurl = "pkg:generic/jboss-eap-7.4-runtime-maven-repository.zip";
+        String expectedVersionedPurl = "pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4";
+
+        Component c = new Component();
+        c.setPurl(inputPurl);
+
+        // Call with feature flag enabled
+        SbomUtils.setPurlVersionFromGeneric(c, true);
+
+        // Verify component.purl was updated
+        assertEquals(
+                expectedVersionedPurl,
+                c.getPurl(),
+                "Component purl should be updated when feature flag is enabled");
+
+        // Verify evidence.identities was also updated
+        assertNotNull(c.getEvidence(), "Evidence should be created");
+        assertNotNull(c.getEvidence().getIdentities(), "Identities should be created");
+        assertEquals(1, c.getEvidence().getIdentities().size(), "Should have one identity");
+        assertEquals(
+                expectedVersionedPurl,
+                c.getEvidence().getIdentities().get(0).getConcludedValue(),
+                "Evidence identity purl should match");
+    }
+
+    @Test
+    void testSetPurlVersionFromGenericWithFeatureFlagDisabled() {
+        String inputPurl = "pkg:generic/jboss-eap-7.4-runtime-maven-repository.zip";
+        String expectedVersionedPurl = "pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4";
+
+        Component c = new Component();
+        c.setPurl(inputPurl);
+
+        // Call with feature flag disabled (default behavior)
+        SbomUtils.setPurlVersionFromGeneric(c, false);
+
+        // Verify component.purl was NOT updated
+        assertEquals(inputPurl, c.getPurl(), "Component purl should NOT be updated when feature flag is disabled");
+
+        // Verify evidence.identities was still updated
+        assertNotNull(c.getEvidence(), "Evidence should be created");
+        assertNotNull(c.getEvidence().getIdentities(), "Identities should be created");
+        assertEquals(1, c.getEvidence().getIdentities().size(), "Should have one identity");
+        assertEquals(
+                expectedVersionedPurl,
+                c.getEvidence().getIdentities().get(0).getConcludedValue(),
+                "Evidence identity purl should still be updated");
+    }
+
+    @Test
+    void testSetPurlVersionFromGenericWithFeatureFlagEnabledBothPurls() {
+        // Use known working PURLs from existing tests
+        String componentPurl = "pkg:generic/jboss-eap-7.4-runtime-maven-repository.zip";
+        String evidencePurl = "pkg:generic/jboss-eap-8.0.0-maven-repository.zip";
+        String expectedComponentPurl = "pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4";
+        String expectedEvidencePurl = "pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4";
+
+        Component c = new Component();
+        c.setPurl(componentPurl);
+        Evidence e = new Evidence();
+        e.setIdentities(List.of(purlToIdent(evidencePurl)));
+        c.setEvidence(e);
+
+        // Call with feature flag enabled
+        SbomUtils.setPurlVersionFromGeneric(c, true);
+
+        // Component purl should be updated since it's generic without version
+        assertEquals(
+                expectedComponentPurl,
+                c.getPurl(),
+                "Component purl should be updated when feature flag is enabled");
+
+        // Evidence identity should be updated with the longer purl (component purl in this case)
+        assertEquals(2, c.getEvidence().getIdentities().size(), "Should have two identities");
+        assertEquals(
+                expectedEvidencePurl,
+                c.getEvidence().getIdentities().get(1).getConcludedValue(),
+                "Evidence identity should be updated with the longer purl");
+    }
 }

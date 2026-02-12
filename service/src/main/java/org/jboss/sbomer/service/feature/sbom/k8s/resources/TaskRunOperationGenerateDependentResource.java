@@ -29,6 +29,7 @@ import org.jboss.sbomer.core.features.sbom.config.OperationConfig;
 import org.jboss.sbomer.core.features.sbom.enums.GenerationRequestType;
 import org.jboss.sbomer.core.features.sbom.utils.MDCUtils;
 import org.jboss.sbomer.core.features.sbom.utils.ObjectMapperProvider;
+import org.jboss.sbomer.service.feature.FeatureFlags;
 import org.jboss.sbomer.service.feature.sbom.k8s.model.GenerationRequest;
 import org.jboss.sbomer.service.feature.sbom.k8s.model.SbomGenerationPhase;
 
@@ -68,6 +69,10 @@ public class TaskRunOperationGenerateDependentResource
      * The index of the deliverable within the configuration.
      */
     public static final String PARAM_COMMAND_DELIVERABLE_INDEX_NAME = "deliverable-index";
+    /**
+     * Parameter for the generic PURL version regex feature flag.
+     */
+    public static final String PARAM_FEATURE_GENERIC_PURL_VERSION_REGEX = "generic-purl-version-regex-enabled";
 
     @ConfigProperty(name = "SBOMER_RELEASE", defaultValue = "sbomer")
     String release;
@@ -77,6 +82,9 @@ public class TaskRunOperationGenerateDependentResource
 
     @Inject
     TektonClient tektonClient;
+
+    @Inject
+    FeatureFlags featureFlags;
 
     TaskRunOperationGenerateDependentResource() {
         super(TaskRun.class);
@@ -160,6 +168,9 @@ public class TaskRunOperationGenerateDependentResource
                                 .build(),
                         new ParamBuilder().withName(PARAM_COMMAND_DELIVERABLE_INDEX_NAME)
                                 .withNewValue(String.valueOf(index))
+                                .build(),
+                        new ParamBuilder().withName(PARAM_FEATURE_GENERIC_PURL_VERSION_REGEX)
+                                .withNewValue(String.valueOf(featureFlags.genericComponentPurlVersionRegexEnabled()))
                                 .build())
                 .withTaskRef(new TaskRefBuilder().withName(release + TASK_SUFFIX).build())
                 .withWorkspaces(

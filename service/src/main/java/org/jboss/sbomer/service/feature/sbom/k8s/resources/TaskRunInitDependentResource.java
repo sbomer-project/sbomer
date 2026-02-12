@@ -44,9 +44,10 @@ public class TaskRunInitDependentResource extends CRUDNoGCKubernetesDependentRes
 
     public static final String RESULT_NAME = "config";
     public static final String PARAM_BUILD_ID_NAME = "build-id";
+    public static final String PARAM_CONFIG_NAME = "config";
+    public static final String PARAM_FEATURE_GENERIC_PURL_VERSION_REGEX = "generic-purl-version-regex-enabled";
     public static final String TASK_SUFFIX = "-init";
     public static final String SA_SUFFIX = "-sa";
-    public static final String PARAM_CONFIG_NAME = "config";
 
     @ConfigProperty(name = "SBOMER_RELEASE", defaultValue = "sbomer")
     String release;

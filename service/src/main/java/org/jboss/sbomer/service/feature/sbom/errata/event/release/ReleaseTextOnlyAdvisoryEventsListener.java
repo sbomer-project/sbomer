@@ -266,7 +266,8 @@ public class ReleaseTextOnlyAdvisoryEventsListener extends AbstractEventsListene
         SbomUtils.setEvidenceIdentities(sbomRootComponent, Set.of(evidencePurl), Field.PURL);
 
         // Try and aquire the version from the purl(s)
-        SbomUtils.setPurlVersionFromGeneric(sbomRootComponent);
+        // Pass the feature flag to enable updating component.purl field
+        SbomUtils.setPurlVersionFromGeneric(sbomRootComponent, featureFlags.genericComponentPurlVersionRegexEnabled());
 
         return sbomRootComponent;
     }
