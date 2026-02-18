@@ -128,6 +128,9 @@ public abstract class AbstractAdjuster implements Adjuster {
         boolean featureFlagEnabled = Boolean.parseBoolean(envValue != null ? envValue : "false");
         SbomUtils.setPurlVersionFromGeneric(metadataComponent, featureFlagEnabled);
 
+        // Also update the main component that will be added to the components list
+        SbomUtils.setPurlVersionFromGeneric(mainComponent, featureFlagEnabled);
+
         // Set main component
         bom.getMetadata().setComponent(metadataComponent);
 
