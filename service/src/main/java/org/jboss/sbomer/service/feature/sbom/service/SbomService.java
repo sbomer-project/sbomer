@@ -24,6 +24,7 @@ import java.util.Set;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.pnc.dto.DeliverableAnalyzerOperation;
 import org.jboss.pnc.dto.requests.DeliverablesAnalysisRequest;
+import org.jboss.pnc.dto.requests.ScratchDeliverablesAnalysisRequest;
 import org.jboss.sbomer.core.SchemaValidator.ValidationResult;
 import org.jboss.sbomer.core.config.ConfigSchemaValidator;
 import org.jboss.sbomer.core.config.SbomerConfigProvider;
@@ -645,9 +646,14 @@ public class SbomService {
 
     public DeliverableAnalyzerOperation doAnalyzeDeliverables(DeliverableAnalysisConfig config) {
         try {
-            return pncClient.analyzeDeliverables(
-                    config.getMilestoneId(),
-                    DeliverablesAnalysisRequest.builder().deliverablesUrls(config.getDeliverableUrls()).build());
+            if (config.getMilestoneId() == null) {
+                return pncClient.startScratchDeliverableAnalysis(
+                        ScratchDeliverablesAnalysisRequest.builder().deliverablesUrls(config.getDeliverableUrls()).build());
+            } else {
+                return pncClient.analyzeDeliverables(
+                        config.getMilestoneId(),
+                        DeliverablesAnalysisRequest.builder().deliverablesUrls(config.getDeliverableUrls()).build());
+            }
         } catch (ClientException ex) {
             throw new ApplicationException("Operation could not be retrieved because PNC responded with an error", ex);
         }
