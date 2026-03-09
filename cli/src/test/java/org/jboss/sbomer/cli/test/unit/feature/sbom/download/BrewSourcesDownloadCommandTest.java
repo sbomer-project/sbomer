@@ -40,7 +40,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Stream;
 
 import org.cyclonedx.model.Bom;
@@ -49,6 +48,7 @@ import org.jboss.pnc.build.finder.koji.ClientSession;
 import org.jboss.sbomer.cli.feature.sbom.client.KojiDownloadClient;
 import org.jboss.sbomer.cli.feature.sbom.command.download.BrewSourcesDownloadCommand;
 import org.jboss.sbomer.cli.feature.sbom.service.KojiService;
+import org.jboss.sbomer.cli.test.utils.KojiBuildInfoFactory;
 import org.jboss.sbomer.core.errors.ApplicationException;
 import org.jboss.sbomer.core.test.TestResources;
 import org.junit.jupiter.api.BeforeEach;
@@ -56,10 +56,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.redhat.red.build.koji.KojiClientException;
-import com.redhat.red.build.koji.model.json.BuildExtraInfo;
-import com.redhat.red.build.koji.model.json.RemoteSourcesExtraInfo;
-import com.redhat.red.build.koji.model.json.TypeInfoExtraInfo;
-import com.redhat.red.build.koji.model.json.util.KojiObjectMapper;
 import com.redhat.red.build.koji.model.xmlrpc.KojiBuildInfo;
 
 import jakarta.ws.rs.core.MediaType;
@@ -91,7 +87,6 @@ class BrewSourcesDownloadCommandTest {
     static final String SOURCES_NAME = "amqstreams-console-ui";
     static final int BUILD_ID = 123;
     static final int PACKAGE_ID = 456;
-    static final KojiObjectMapper MAPPER = new KojiObjectMapper();
 
     BrewSourcesDownloadCommandAlt brewSourcesDownloadCommand;
     KojiService kojiService;
@@ -275,24 +270,12 @@ class BrewSourcesDownloadCommandTest {
     }
 
     KojiBuildInfo createBuildInfo(String remoteSourcesName) {
-        KojiBuildInfo buildInfo = new KojiBuildInfo(BUILD_ID, PACKAGE_ID, NAME, VERSION, RELEASE);
-        RemoteSourcesExtraInfo remoteSourcesExtraInfo = new RemoteSourcesExtraInfo();
-        remoteSourcesExtraInfo.setName(remoteSourcesName);
-        TypeInfoExtraInfo typeInfoExtraInfo = new TypeInfoExtraInfo();
-        typeInfoExtraInfo.setRemoteSourcesExtraInfo(List.of(remoteSourcesExtraInfo));
-        BuildExtraInfo buildExtraInfo = new BuildExtraInfo();
-        buildExtraInfo.setTypeInfo(typeInfoExtraInfo);
-        buildInfo.setExtra(MAPPER.convertValue(buildExtraInfo, Map.class));
-        return buildInfo;
+        return KojiBuildInfoFactory
+                .withRemoteSources(new KojiBuildInfo(BUILD_ID, PACKAGE_ID, NAME, VERSION, RELEASE), remoteSourcesName);
     }
 
     KojiBuildInfo createBuildInfoNoRemoteSources() {
-        KojiBuildInfo buildInfo = new KojiBuildInfo(BUILD_ID, PACKAGE_ID, NAME, VERSION, RELEASE);
-        TypeInfoExtraInfo typeInfoExtraInfo = new TypeInfoExtraInfo();
-        BuildExtraInfo buildExtraInfo = new BuildExtraInfo();
-        buildExtraInfo.setTypeInfo(typeInfoExtraInfo);
-        buildInfo.setExtra(MAPPER.convertValue(buildExtraInfo, Map.class));
-        return buildInfo;
+        return KojiBuildInfoFactory.withRemoteSources(new KojiBuildInfo(BUILD_ID, PACKAGE_ID, NAME, VERSION, RELEASE));
     }
 
 }

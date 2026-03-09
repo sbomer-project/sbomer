@@ -26,6 +26,7 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -50,8 +51,10 @@ import org.jboss.pnc.build.finder.koji.ClientSession;
 import org.jboss.pnc.build.finder.koji.KojiBuild;
 import org.jboss.pnc.dto.Artifact;
 import org.jboss.sbomer.cli.feature.sbom.client.KojiDownloadClient;
+import org.jboss.sbomer.cli.feature.sbom.client.RemoteSource;
 import org.jboss.sbomer.cli.feature.sbom.utils.buildfinder.FinderStatus;
 import org.jboss.sbomer.core.errors.ApplicationException;
+import org.jboss.sbomer.core.features.sbom.utils.ObjectMapperProvider;
 
 import com.redhat.red.build.koji.KojiClientException;
 import com.redhat.red.build.koji.model.json.BuildExtraInfo;
@@ -312,6 +315,67 @@ public class KojiService {
         log.debug("{}", builds);
 
         return null;
+    }
+
+    /**
+     * Downloads and parses all {@code remote-source[-<name>].json} files associated with the given build.
+     *
+     * <p>
+     * OSBS container builds (produced with Cachito) have one or more remote-source entries in
+     * {@code extra.typeinfo.remote-sources}. Each entry has a corresponding {@code remote-source[-<name>].json} file
+     * archived that identifies the upstream source repository and commit.
+     * </p>
+     *
+     * @param buildInfo the build information
+     * @return the list of remote sources (which may be empty)
+     */
+    public List<RemoteSource> downloadRemoteSources(KojiBuildInfo buildInfo) {
+        BuildExtraInfo buildExtraInfo = MAPPER.convertValue(buildInfo.getExtra(), BuildExtraInfo.class);
+        List<RemoteSourcesExtraInfo> remoteSourcesInfos = Optional.ofNullable(buildExtraInfo)
+                .map(BuildExtraInfo::getTypeInfo)
+                .map(TypeInfoExtraInfo::getRemoteSourcesExtraInfo)
+                .orElse(Collections.emptyList());
+
+        if (remoteSourcesInfos.isEmpty()) {
+            log.debug("No remote sources found for build ID {}", buildInfo.getId());
+            return Collections.emptyList();
+        }
+
+        List<RemoteSource> result = new ArrayList<>(remoteSourcesInfos.size());
+
+        for (RemoteSourcesExtraInfo info : remoteSourcesInfos) {
+            String name = info.getName();
+            String jsonFilename = (name != null ? (REMOTE_SOURCE_PREFIX + REMOTE_SOURCE_DELIMITER + name)
+                    : REMOTE_SOURCE_PREFIX) + SOURCES_FILE_METADATA_SUFFIX;
+
+            log.debug("Downloading remote source file '{}' for build ID {}", jsonFilename, buildInfo.getId());
+
+            try (Response response = kojiDownloadClient.downloadSourcesFile(
+                    buildInfo.getName(),
+                    buildInfo.getVersion(),
+                    buildInfo.getRelease(),
+                    jsonFilename)) {
+                if (response.getStatus() != Response.Status.OK.getStatusCode()) {
+                    throw new ApplicationException(
+                            "Failed to download remote source file '{}' for build ID {} (HTTP status code {})",
+                            jsonFilename,
+                            buildInfo.getId(),
+                            response.getStatus());
+                }
+
+                try (InputStream in = response.readEntity(InputStream.class)) {
+                    result.add(ObjectMapperProvider.json().readValue(in, RemoteSource.class));
+                }
+            } catch (Exception e) {
+                throw new ApplicationException(
+                        "Failed to download remote source file '{}' from build ID {}",
+                        jsonFilename,
+                        buildInfo.getId(),
+                        e);
+            }
+        }
+
+        return Collections.unmodifiableList(result);
     }
 
     public void downloadSourcesFiles(KojiBuildInfo buildInfo, Path outputDir) {
