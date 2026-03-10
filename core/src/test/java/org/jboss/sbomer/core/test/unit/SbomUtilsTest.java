@@ -77,6 +77,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -308,6 +309,26 @@ class SbomUtilsTest {
             assertEquals(uid, component1.getVersion());
             assertEquals(expectedPurl, component1.getBomRef());
             assertEquals(component.getHashes(), component1.getHashes());
+        }
+
+        @ParameterizedTest
+        @NullAndEmptySource
+        @ValueSource(strings = { " " })
+        void shouldNotAddPedigreeAncestorForBlankUrl(String url) {
+            Component component = new Component();
+            component.setType(Type.LIBRARY);
+            component.setName("foo");
+            SbomUtils.addPedigreeAncestor(component, url, "bar");
+            assertNull(component.getPedigree());
+        }
+
+        @Test
+        void shouldNotAddPedigreeAncestorForMalformedUrl() {
+            Component component = new Component();
+            component.setType(Type.LIBRARY);
+            component.setName("foo");
+            SbomUtils.addPedigreeAncestor(component, "bar", "baz");
+            assertNull(component.getPedigree());
         }
 
         @Test

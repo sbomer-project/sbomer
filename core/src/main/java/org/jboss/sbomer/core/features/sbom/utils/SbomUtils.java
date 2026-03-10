@@ -977,20 +977,22 @@ public class SbomUtils {
             return;
         }
 
-        Component component = new Component();
+        PackageURL packageURL;
 
         try {
-            PackageURL packageURL = VcsUrl.create(url).toPackageURL(uid);
-            String purl = packageURL.toString();
-            component.setBomRef(purl);
-            component.setPurl(purl);
+            packageURL = VcsUrl.create(url).toPackageURL(uid);
         } catch (Exception e) {
             log.error("Error creating purl for URL '{}': {}", url, e.getMessage(), e);
+            return;
         }
 
-        component.setType(c.getType());
-        component.setName(c.getName());
+        String purl = packageURL.toString();
+        Component component = new Component();
+        component.setType(Component.Type.LIBRARY);
+        component.setName(packageURL.getName());
         component.setVersion(uid);
+        component.setBomRef(purl);
+        component.setPurl(purl);
 
         Pedigree pedigree = c.getPedigree() != null ? c.getPedigree() : new Pedigree();
         Ancestors ancestors = pedigree.getAncestors() != null ? pedigree.getAncestors() : new Ancestors();
@@ -1908,5 +1910,4 @@ public class SbomUtils {
 
         c.getEvidence().setIdentities(updatedIdentities);
     }
-
 }

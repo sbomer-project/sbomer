@@ -25,6 +25,7 @@ import static org.jboss.sbomer.core.features.sbom.Constants.SBOM_RED_HAT_ENVIRON
 import static org.jboss.sbomer.core.features.sbom.Constants.SBOM_RED_HAT_PNC_BUILD_ID;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.addHashIfMissing;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.addMrrc;
+import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.addPedigreeAncestor;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.getHash;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.hasExternalReference;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.setArtifactMetadata;
@@ -35,6 +36,7 @@ import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.setSupplier;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.updatePurl;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -47,6 +49,7 @@ import org.cyclonedx.model.Property;
 import org.jboss.pnc.build.finder.koji.KojiBuild;
 import org.jboss.pnc.dto.Artifact;
 import org.jboss.sbomer.cli.feature.sbom.adjuster.PncBuildAdjuster;
+import org.jboss.sbomer.cli.feature.sbom.client.RemoteSource;
 import org.jboss.sbomer.cli.feature.sbom.service.KojiService;
 import org.jboss.sbomer.core.errors.ApplicationException;
 import org.jboss.sbomer.core.features.sbom.enums.ProcessorType;
@@ -345,12 +348,29 @@ public class DefaultProcessor implements Processor {
         setPublisher(component);
         setSupplier(component);
 
+        addPedigreeFromRemoteSources(component, buildInfo);
+
         // Add additional metadata
         setBrewBuildMetadata(
                 component,
                 String.valueOf(buildInfo.getId()),
-                Optional.of(buildInfo.getSource()),
+                Optional.ofNullable(buildInfo.getSource()),
                 kojiService.getConfig().getKojiWebURL().toString());
+    }
+
+    private void addPedigreeFromRemoteSources(Component component, KojiBuildInfo buildInfo) {
+        try {
+            List<RemoteSource> remoteSources = kojiService.downloadRemoteSources(buildInfo);
+
+            for (RemoteSource remoteSource : remoteSources) {
+                String repo = remoteSource.getRepo();
+                String ref = remoteSource.getRef();
+                log.debug("Adding pedigree from remote source: repo='{}', ref='{}'", repo, ref);
+                addPedigreeAncestor(component, repo, ref);
+            }
+        } catch (Exception e) {
+            log.error("Unable to fetch remote sources for build ID {}", buildInfo.getId(), e);
+        }
     }
 
     @Override

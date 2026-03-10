@@ -24,6 +24,7 @@ import org.jboss.pnc.dto.Artifact;
 import org.jboss.pnc.dto.Build;
 import org.jboss.pnc.dto.BuildConfigurationRevisionRef;
 import org.jboss.pnc.enums.BuildType;
+import org.jboss.sbomer.cli.feature.sbom.client.RemoteSource;
 import org.jboss.sbomer.cli.feature.sbom.processor.DefaultProcessor;
 import org.jboss.sbomer.cli.feature.sbom.service.KojiService;
 import org.jboss.sbomer.core.features.sbom.Constants;
@@ -317,5 +318,57 @@ class DefaultProcessorTest {
 
         assertEquals(459, bom.getComponents().size());
         assertEquals(459, bom.getDependencies().size());
+    }
+
+    @Test
+    void testAddRemoteSourcePedigree() throws IOException, KojiClientException {
+        PncService pncServiceMock = Mockito.mock(PncService.class);
+        KojiService kojiServiceMock = Mockito.mock(KojiService.class);
+
+        KojiBuildInfo kojiBuildInfo = new KojiBuildInfo();
+        kojiBuildInfo.setId(12345);
+
+        BuildConfig buildConfig = new BuildConfig();
+        buildConfig.setKojiWebURL(new URL("https://koji.web"));
+
+        RemoteSource remoteSource1 = new RemoteSource();
+        remoteSource1.setRepo("https://github.com/stackrox/stackrox.git");
+        remoteSource1.setRef("49cc2ba8faecefb5654462814c00501076837483");
+
+        RemoteSource remoteSource2 = new RemoteSource();
+        remoteSource2.setRepo("https://github.com/facebook/rocksdb.git");
+        remoteSource2.setRef("0915c99f01b46f50af8e02da8b6528156f584b7c");
+
+        when(kojiServiceMock.getConfig()).thenReturn(buildConfig);
+        when(kojiServiceMock.findBuild("amqstreams-console-ui-container-2.7.0-8.1718294415")).thenReturn(kojiBuildInfo);
+        when(kojiServiceMock.downloadRemoteSources(kojiBuildInfo)).thenReturn(List.of(remoteSource1, remoteSource2));
+
+        DefaultProcessor defaultProcessor = new DefaultProcessor(pncServiceMock, kojiServiceMock);
+
+        Bom bom = SbomUtils.fromString(TestResources.asString("boms/image-after-adjustments.json"));
+        Bom processed = defaultProcessor.process(bom);
+
+        Component mainComponent = processed.getComponents().get(0);
+        Pedigree pedigree = mainComponent.getPedigree();
+        assertNotNull(pedigree);
+        Ancestors ancestors = pedigree.getAncestors();
+        assertNotNull(ancestors);
+        List<Component> components = ancestors.getComponents();
+        assertNotNull(components);
+        assertEquals(2, components.size());
+
+        Component ancestor1 = components.get(0);
+        assertEquals(Component.Type.LIBRARY, ancestor1.getType());
+        assertEquals("stackrox", ancestor1.getName());
+        assertEquals(
+                "pkg:generic/github.com/stackrox/stackrox@49cc2ba8faecefb5654462814c00501076837483?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fstackrox%2Fstackrox.git",
+                ancestor1.getPurl());
+
+        Component ancestor2 = components.get(1);
+        assertEquals(Component.Type.LIBRARY, ancestor2.getType());
+        assertEquals("rocksdb", ancestor2.getName());
+        assertEquals(
+                "pkg:generic/github.com/facebook/rocksdb@0915c99f01b46f50af8e02da8b6528156f584b7c?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Ffacebook%2Frocksdb.git",
+                ancestor2.getPurl());
     }
 }
