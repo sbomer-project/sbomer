@@ -24,12 +24,14 @@ import java.util.regex.Pattern;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.pnc.dto.Build;
+import org.jboss.sbomer.cli.feature.sbom.client.GitHubClient;
 import org.jboss.sbomer.cli.feature.sbom.client.GitLabClient;
 import org.jboss.sbomer.cli.feature.sbom.client.GitilesClient;
 import org.jboss.sbomer.core.errors.ClientException;
 import org.jboss.sbomer.core.features.sbom.config.Config;
 import org.jboss.sbomer.core.features.sbom.utils.ObjectMapperProvider;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -51,10 +53,19 @@ public class ConfigReader {
     @RestClient
     GitLabClient gitLabClient;
 
+    @Inject
+    @RestClient
+    GitHubClient gitHubClient;
+
     @ConfigProperty(name = "sbomer.gitlab.host", defaultValue = "gitlab.com")
     @Getter
     @Setter
     String gitLabHost;
+
+    @ConfigProperty(name = "sbomer.github.host", defaultValue = "github.com")
+    @Getter
+    @Setter
+    String gitHubHost;
 
     @Getter
     final ObjectMapper yamlObjectMapper = ObjectMapperProvider.yaml();
@@ -142,6 +153,53 @@ public class ConfigReader {
 
     }
 
+    private byte[] getGitHubConfigContent(String scmUrl, String scmTag) {
+
+        log.debug("Using GitHub config provider");
+
+        // The regexp below will match, e.g., both git@github.ibm.com:owner/repo.git
+        // and https://github.ibm.com/owner/repo.git
+        Pattern pattern = Pattern.compile(getGitHubHost() + "[:/](.*?)/(.*?)\\.git$");
+        Matcher matcher = pattern.matcher(scmUrl);
+        if (!matcher.find()) {
+            throw new ClientException("Invalid URL '{}' for GitHub SCM", scmUrl);
+        }
+
+        String owner = matcher.group(1);
+        String repo = matcher.group(2);
+
+        log.debug("Found GitHub repository: '{}/{}'", owner, repo);
+
+        String base64Config;
+
+        log.debug(
+                "Fetching file '{}' from the '{}/{}' GitHub repository with tag '{}'",
+                CONFIG_PATH,
+                owner,
+                repo,
+                scmTag);
+
+        try {
+            String jsonResponse = gitHubClient.fetchFile(owner, repo, CONFIG_PATH, scmTag);
+
+            // GitHub API returns JSON with base64 encoded content
+            // Parse the JSON to extract the content field
+            JsonNode jsonNode = jsonObjectMapper.readTree(jsonResponse);
+            base64Config = jsonNode.get("content").asText();
+        } catch (Exception e) {
+            log.debug(
+                    "SBOMer configuration file could not be retrieved in the '{}/{}' repository with '{}' tag, ignoring",
+                    owner,
+                    repo,
+                    scmTag,
+                    e);
+
+            return new byte[0];
+        }
+
+        return Base64.getDecoder().decode(base64Config);
+    }
+
     public Config getConfig(Build build) {
 
         String scmUrl = build.getScmUrl();
@@ -158,6 +216,8 @@ public class ConfigReader {
             configContent = getGerritConfigContent(scmUrl, scmTag);
         } else if (scmUrl.contains("gitlab")) {
             configContent = getGitLabConfigContent(scmUrl, scmTag);
+        } else if (scmUrl.contains("github")) {
+            configContent = getGitHubConfigContent(scmUrl, scmTag);
         } else {
             throw new ClientException(
                     "Unable to determine the project from the SCM url: '{}' from PNC build '{}'",

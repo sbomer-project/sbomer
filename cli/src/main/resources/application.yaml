@@ -32,6 +32,8 @@ quarkus:
       url: "https://${sbomer.gerrit.host}"
     "gitlab":
       url: "https://${sbomer.gitlab.host}"
+    "github":
+      url: "https://${sbomer.github.host}"
     "sbomer":
       url: "${sbomer.host}"
     "koji-download":
@@ -78,6 +80,13 @@ sbomer:
   ## GitLab configuration
   gitlab:
     #host:
+  ## GitHub configuration
+  github:
+    ## (optional) Hostname of the GitHub server used to match SCM URLs.
+    ## For public GitHub use: api.github.com
+    ## For GitHub Enterprise use: <host>/api/v3 (e.g. github.ibm.com/api/v3)
+    #host:
+    #token:
   koji:
     #hub:
     #  url:

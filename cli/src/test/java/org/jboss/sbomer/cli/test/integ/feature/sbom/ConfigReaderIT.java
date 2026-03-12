@@ -32,6 +32,7 @@ import java.util.Base64;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.pnc.dto.Build;
 import org.jboss.sbomer.cli.feature.sbom.ConfigReader;
+import org.jboss.sbomer.cli.feature.sbom.client.GitHubClient;
 import org.jboss.sbomer.cli.feature.sbom.client.GitLabClient;
 import org.jboss.sbomer.cli.feature.sbom.client.GitilesClient;
 import org.jboss.sbomer.core.errors.ApplicationException;
@@ -324,6 +325,86 @@ class ConfigReaderIT {
                     .thenReturn(new String(getTestConfigAsBytes("multi-product.yaml")));
 
             assertNotNull(configReader.getConfig(build4));
+        }
+    }
+
+    @Nested
+    class GitHub {
+
+        @InjectMock
+        @RestClient
+        GitHubClient gitHubClient;
+
+        final Build build = Build.builder()
+                .id("ARYT3LBXDVYAC")
+                .scmUrl("https://github.ibm.com/pnc-stage/hibernate-hibernate-orm-product.git")
+                .scmTag("1.1.0.redhat-00008")
+                .build();
+
+        @BeforeEach
+        void configureGitHubHost() {
+            configReader.setGitHubHost("github.ibm.com");
+        }
+
+        @Test
+        void testConfigDoesNotExist() {
+            Mockito.when(
+                    gitHubClient.fetchFile(
+                            "pnc-stage",
+                            "hibernate-hibernate-orm-product",
+                            ".sbomer/config.yaml",
+                            "1.1.0.redhat-00008"))
+                    .thenThrow(NotFoundException.class);
+
+            assertNull(configReader.getConfig(build));
+        }
+
+        @Test
+        void testConfigMultipleProducts() throws IOException {
+            // GitHub API returns JSON with base64 encoded content
+            String base64Content = Base64.getEncoder().encodeToString(getTestConfigAsBytes("multi-product.yaml"));
+            String jsonResponse = String.format("{\"content\":\"%s\",\"encoding\":\"base64\"}", base64Content);
+
+            Mockito.when(
+                    gitHubClient.fetchFile(
+                            "pnc-stage",
+                            "hibernate-hibernate-orm-product",
+                            ".sbomer/config.yaml",
+                            "1.1.0.redhat-00008"))
+                    .thenReturn(jsonResponse);
+
+            assertNotNull(configReader.getConfig(build));
+        }
+
+        @Test
+        void testMoreGitHubUrls() throws IOException {
+
+            Build build2 = Build.builder()
+                    .id("ARYT3LBXDVYACCC")
+                    .scmUrl("git@github.ibm.com:platform/requirements.git")
+                    .scmTag("1.3.0.redhat-00013")
+                    .build();
+
+            Build build3 = Build.builder()
+                    .id("BBYT3LBXDVYACCC")
+                    .scmUrl("https://github.ibm.com/platform/requirements.git")
+                    .scmTag("0.3.0.redhat-00003")
+                    .build();
+
+            String base64Content = Base64.getEncoder().encodeToString(getTestConfigAsBytes("multi-product.yaml"));
+            String jsonResponse = String.format("{\"content\":\"%s\",\"encoding\":\"base64\"}", base64Content);
+
+            Mockito.when(
+                    gitHubClient.fetchFile("platform", "requirements", ".sbomer/config.yaml", "1.3.0.redhat-00013"))
+                    .thenReturn(jsonResponse);
+
+            assertNotNull(configReader.getConfig(build2));
+
+            Mockito.when(
+                    gitHubClient.fetchFile("platform", "requirements", ".sbomer/config.yaml", "0.3.0.redhat-00003"))
+                    .thenReturn(jsonResponse);
+
+            assertNotNull(configReader.getConfig(build3));
         }
     }
 }
