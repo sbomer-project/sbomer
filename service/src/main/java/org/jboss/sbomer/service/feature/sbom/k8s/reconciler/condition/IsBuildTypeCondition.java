@@ -19,6 +19,7 @@ package org.jboss.sbomer.service.feature.sbom.k8s.reconciler.condition;
 
 import org.jboss.sbomer.core.features.sbom.enums.GenerationRequestType;
 import org.jboss.sbomer.service.feature.sbom.k8s.model.GenerationRequest;
+import org.jboss.sbomer.service.feature.sbom.k8s.model.SbomGenerationStatus;
 
 import io.fabric8.tekton.v1beta1.TaskRun;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
@@ -40,6 +41,22 @@ public class IsBuildTypeCondition implements Condition<TaskRun, GenerationReques
             return false;
         }
 
-        return true;
+        // Only reconcile the init TaskRun when status is SCHEDULED or INITIALIZING
+        // Once INITIALIZED or beyond, the init TaskRun is complete and should not be updated
+        if (primary.getStatus() == null) {
+            log.trace("Status is null, not ready for init reconciliation");
+            return false;
+        }
+
+        boolean shouldReconcile = primary.getStatus().equals(SbomGenerationStatus.SCHEDULED)
+                || primary.getStatus().equals(SbomGenerationStatus.INITIALIZING);
+
+        if (!shouldReconcile) {
+            log.trace(
+                    "Resource status is {}, which is beyond initialization phase. Init TaskRun should not be reconciled.",
+                    primary.getStatus());
+        }
+
+        return shouldReconcile;
     }
 }
