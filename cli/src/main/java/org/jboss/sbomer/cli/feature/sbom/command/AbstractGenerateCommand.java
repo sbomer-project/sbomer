@@ -30,9 +30,11 @@ import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.eclipse.jgit.api.CloneCommand;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.api.errors.InvalidRemoteException;
+import org.eclipse.jgit.transport.CredentialsProvider;
 import org.jboss.pnc.dto.Build;
 import org.jboss.sbomer.cli.errors.GitCloneException;
 import org.jboss.sbomer.cli.errors.pnc.InvalidPncBuildStateException;
@@ -40,6 +42,7 @@ import org.jboss.sbomer.cli.errors.pnc.MissingPncBuildException;
 import org.jboss.sbomer.cli.errors.pnc.UnsupportedPncBuildException;
 import org.jboss.sbomer.cli.feature.sbom.client.facade.SBOMerClientFacade;
 import org.jboss.sbomer.cli.feature.sbom.command.mixin.GeneratorToolMixin;
+import org.jboss.sbomer.cli.feature.sbom.git.GitCredentialsProvider;
 import org.jboss.sbomer.cli.feature.sbom.model.Sbom;
 import org.jboss.sbomer.cli.feature.sbom.model.SbomGenerationRequest;
 import org.jboss.sbomer.cli.feature.sbom.utils.otel.OtelCLIUtils;
@@ -79,6 +82,9 @@ public abstract class AbstractGenerateCommand implements Callable<Integer> {
 
     @Inject
     protected SBOMerClientFacade sbomerClientFacade;
+
+    @Inject
+    protected GitCredentialsProvider gitCredentialsProvider;
 
     protected final SbomerConfigProvider sbomerConfigProvider = SbomerConfigProvider.getInstance();
 
@@ -343,12 +349,24 @@ public abstract class AbstractGenerateCommand implements Callable<Integer> {
         }
 
         log.info("Cloning the repository to {}...", path);
-        try (Git ignored = Git.cloneRepository()
+
+        // Build clone command
+        CloneCommand cloneCommand = Git.cloneRepository()
                 .setDirectory(path.toFile())
                 .setURI(url)
                 .setBranch(tag)
-                .setDepth(1)
-                .call()) {
+                .setDepth(1);  // Shallow clone for efficiency
+
+        // Add credentials if available
+        CredentialsProvider credentials = gitCredentialsProvider.getCredentials(url);
+        if (credentials != null) {
+            log.debug("Using authenticated clone for: {}", url);
+            cloneCommand.setCredentialsProvider(credentials);
+        } else {
+            log.debug("Using public clone (no authentication) for: {}", url);
+        }
+
+        try (Git ignored = cloneCommand.call()) {
             log.info("Successfully cloned the repository to {}", path);
         } catch (InvalidRemoteException e) {
             throw new ApplicationException(
@@ -357,6 +375,17 @@ public abstract class AbstractGenerateCommand implements Callable<Integer> {
                     e);
         } catch (GitAPIException e) {
             log.error("Unable to clone the '{}' repository", url, e);
+
+            // Provide helpful error message for authentication failures
+            if (e.getMessage().contains("not authorized") || e.getMessage().contains("authentication failed")
+                    || e.getMessage().contains("Authentication is required")) {
+                throw new ApplicationException(
+                        "Authentication failed for repository '{}'. "
+                                + "Please configure Git token in application.yaml or via environment variables.",
+                        url,
+                        e);
+            }
+
             throw new ApplicationException("Unable to clone the repository", e);
         }
 
