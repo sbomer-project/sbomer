@@ -157,9 +157,8 @@ public class ConfigReader {
 
         log.debug("Using GitHub config provider");
 
-        // The regexp below will match, e.g., both git@github.ibm.com:owner/repo.git
-        // and https://github.ibm.com/owner/repo.git
-        Pattern pattern = Pattern.compile(getGitHubHost() + "[:/](.*?)/(.*?)\\.git$");
+        // The regexp below will match https://github.ibm.com/owner/repo.git
+        Pattern pattern = Pattern.compile("[:/]([^/:]+)/([^/]+)\\.git$");
         Matcher matcher = pattern.matcher(scmUrl);
         if (!matcher.find()) {
             throw new ClientException("Invalid URL '{}' for GitHub SCM", scmUrl);
