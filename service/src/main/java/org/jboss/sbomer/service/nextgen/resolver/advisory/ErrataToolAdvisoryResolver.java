@@ -166,7 +166,7 @@ public class ErrataToolAdvisoryResolver extends AbstractResolver {
             return null;
         }
 
-        if (details.getContentTypes().stream().noneMatch(type -> type.equals("docker") || type.equals("rpm"))) {
+        if (!details.hasKnownContentType()) {
             updateEventStatus(
                     eventId,
                     EventStatus.IGNORED,

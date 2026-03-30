@@ -89,6 +89,24 @@ public class Errata {
         private Boolean textonly;
         @JsonProperty("content_types")
         private List<String> contentTypes = new ArrayList<>();
+
+        public boolean hasKnownContentType() {
+            for (String type : contentTypes) {
+                if (type == null) {
+                    continue;
+                }
+
+                switch (type) {
+                    case "docker", "rpm", "module":
+                        return true;
+                    default:
+                        break;
+                }
+            }
+
+            return false;
+        }
+
         @JsonProperty("created_at")
         private Instant createdAt;
         @JsonProperty("actual_ship_date")

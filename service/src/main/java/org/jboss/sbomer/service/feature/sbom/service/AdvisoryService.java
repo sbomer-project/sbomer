@@ -414,17 +414,16 @@ public class AdvisoryService {
 
         Details details = erratum.getDetails().get();
         if (details.getContentTypes().size() != 1) {
-
             String reason = String.format(
                     "The standard errata advisory has zero or multiple content-types (%s)",
                     details.getContentTypes());
-            doIgnoreRequest(requestEvent, reason);
+            return doIgnoreRequest(requestEvent, reason);
         }
 
-        if (details.getContentTypes().stream().noneMatch(type -> type.equals("docker") || type.equals("rpm"))) {
+        if (!details.hasKnownContentType()) {
             String reason = String
                     .format("The standard errata advisory has unknown content-types (%s)", details.getContentTypes());
-            doIgnoreRequest(requestEvent, reason);
+            return doIgnoreRequest(requestEvent, reason);
         }
 
         ErrataBuildList erratumBuildList = errataClient.getBuildsList(String.valueOf(details.getId()));
@@ -442,7 +441,7 @@ public class AdvisoryService {
         // The are cases where an advisory might have no builds, let's ignore them to avoid a pending request
         if (buildDetails.values().stream().filter(Objects::nonNull).mapToInt(List::size).sum() == 0) {
             String reason = String.format("The standard errata advisory has no retrievable builds attached, skipping!");
-            doIgnoreRequest(requestEvent, reason);
+            return doIgnoreRequest(requestEvent, reason);
         }
 
         // If the status is SHIPPED_LIVE and there is a successful generation for this advisory, create release
