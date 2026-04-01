@@ -263,7 +263,7 @@ public class SbomUtils {
                     component,
                     ExternalReference.Type.VCS,
                     pncBuild.getScmRepository().getExternalUrl(),
-                    "");
+                    null);
         }
 
         addPedigreeAncestor(component, pncBuild.getScmUrl() + "#" + pncBuild.getScmTag(), pncBuild.getScmRevision());
@@ -329,7 +329,7 @@ public class SbomUtils {
                 String scmSource = source.get();
 
                 if (!hasExternalReference(component, ExternalReference.Type.VCS)) {
-                    addExternalReference(component, ExternalReference.Type.VCS, scmSource, "");
+                    addExternalReference(component, ExternalReference.Type.VCS, scmSource, null);
                 }
 
                 int hashIndex = scmSource.lastIndexOf('#');
@@ -956,7 +956,7 @@ public class SbomUtils {
                 .stream()
                 .flatMap(Collection::stream)
                 .filter(ref -> ref.getType().equals(type))
-                .filter(ref -> Objects.equals(ref.getComment(), comment))
+                .filter(ref -> Objects.equals(ref.getUrl(), url))
                 .findFirst()
                 .orElse(null);
 
@@ -967,7 +967,10 @@ public class SbomUtils {
         }
 
         reference.setUrl(url);
-        reference.setComment(comment);
+
+        if (!StringUtils.isBlank(comment)) {
+            reference.setComment(comment);
+        }
 
         c.setExternalReferences(externalRefs);
     }

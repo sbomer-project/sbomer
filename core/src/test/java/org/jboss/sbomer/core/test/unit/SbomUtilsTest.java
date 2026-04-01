@@ -422,7 +422,7 @@ class SbomUtilsTest {
             assertEquals(1, buildVcs.size());
             assertEquals(ExternalReference.Type.VCS, buildVcs.get(0).getType());
             assertEquals(scmExternalUrl, buildVcs.get(0).getUrl());
-            assertEquals("", buildVcs.get(0).getComment());
+            assertNull(buildVcs.get(0).getComment());
         }
 
         @Test

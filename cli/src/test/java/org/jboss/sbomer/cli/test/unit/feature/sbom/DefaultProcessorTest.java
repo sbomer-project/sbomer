@@ -370,5 +370,17 @@ class DefaultProcessorTest {
         assertEquals(
                 "pkg:generic/github.com/facebook/rocksdb@0915c99f01b46f50af8e02da8b6528156f584b7c?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Ffacebook%2Frocksdb.git",
                 ancestor2.getPurl());
+
+        List<ExternalReference> vcsRefs = mainComponent.getExternalReferences()
+                .stream()
+                .filter(ref -> ref.getType() == ExternalReference.Type.VCS)
+                .toList();
+        assertEquals(2, vcsRefs.size());
+
+        ExternalReference vcsRef1 = vcsRefs.get(0);
+        assertEquals("https://github.com/stackrox/stackrox.git", vcsRef1.getUrl());
+
+        ExternalReference vcsRef2 = vcsRefs.get(1);
+        assertEquals("https://github.com/facebook/rocksdb.git", vcsRef2.getUrl());
     }
 }

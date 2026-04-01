@@ -23,6 +23,7 @@ import static org.jboss.sbomer.core.features.sbom.Constants.CONTAINER_PROPERTY_I
 import static org.jboss.sbomer.core.features.sbom.Constants.SBOM_RED_HAT_BREW_BUILD_ID;
 import static org.jboss.sbomer.core.features.sbom.Constants.SBOM_RED_HAT_ENVIRONMENT_IMAGE;
 import static org.jboss.sbomer.core.features.sbom.Constants.SBOM_RED_HAT_PNC_BUILD_ID;
+import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.addExternalReference;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.addHashIfMissing;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.addMrrc;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.addPedigreeAncestor;
@@ -348,7 +349,7 @@ public class DefaultProcessor implements Processor {
         setPublisher(component);
         setSupplier(component);
 
-        addPedigreeFromRemoteSources(component, buildInfo);
+        enrichFromRemoteSources(component, buildInfo);
 
         // Add additional metadata
         setBrewBuildMetadata(
@@ -358,15 +359,16 @@ public class DefaultProcessor implements Processor {
                 kojiService.getConfig().getKojiWebURL().toString());
     }
 
-    private void addPedigreeFromRemoteSources(Component component, KojiBuildInfo buildInfo) {
+    private void enrichFromRemoteSources(Component component, KojiBuildInfo buildInfo) {
         try {
             List<RemoteSource> remoteSources = kojiService.downloadRemoteSources(buildInfo);
 
             for (RemoteSource remoteSource : remoteSources) {
                 String repo = remoteSource.getRepo();
                 String ref = remoteSource.getRef();
-                log.debug("Adding pedigree from remote source: repo='{}', ref='{}'", repo, ref);
+                log.debug("Enriching component from remote source: repo='{}', ref='{}'", repo, ref);
                 addPedigreeAncestor(component, repo, ref);
+                addExternalReference(component, ExternalReference.Type.VCS, repo, null);
             }
         } catch (Exception e) {
             log.error("Unable to fetch remote sources for build ID {}", buildInfo.getId(), e);

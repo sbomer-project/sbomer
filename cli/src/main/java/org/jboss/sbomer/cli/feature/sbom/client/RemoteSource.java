@@ -29,54 +29,55 @@ import lombok.Data;
 
 /**
  * Represents the content of a remote source JSON file attached to an OSBS container build.
+ *
+ * @see <a href= "https://github.com/containerbuildsystem/cachito/blob/master/cachito/web/models.py">Cachito Request
+ *      model</a>
  */
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class RemoteSource {
+    private Integer id;
+
+    private Instant created;
+
+    private String repo;
+
+    private String ref;
+
+    private List<String> pkgManagers;
+
+    private String user;
+
+    private Map<String, String> environmentVariables;
+
+    private List<String> flags;
+
+    private String submittedBy;
+
+    private String state;
+
+    private String stateReason;
+
+    private Instant updated;
+
     private String configurationFiles;
 
     private String contentManifest;
 
-    private Instant created;
-
-    private List<String> dependencies;
-
-    private Map<String, String> environmentVariables;
-
     private String environmentVariablesInfo;
-
-    private List<String> flags;
-
-    private Integer id;
-
-    private Logs logs;
-
-    private List<String> packages;
-
-    private List<String> pkgManagers;
-
-    /**
-     * The upstream commit reference.
-     */
-    private String ref;
-
-    /**
-     * The upstream source repository URL.
-     */
-    private String repo;
-
-    private String state;
 
     private List<StateHistory> stateHistory;
 
-    private String stateReason;
+    private List<Package> packages;
 
-    private String submittedBy;
+    private List<Dependency> dependencies;
 
-    private Instant updated;
+    private Logs logs;
 
-    private String user;
+    private String errorOrigin;
+
+    private String errorType;
 
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -94,5 +95,35 @@ public class RemoteSource {
         private String stateReason;
 
         private Instant updated;
+    }
+
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public static class Package {
+        private String name;
+
+        private String type;
+
+        private String version;
+
+        private List<Dependency> dependencies;
+
+        private String path;
+    }
+
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public static class Dependency {
+        private String name;
+
+        private String type;
+
+        private String version;
+
+        private Boolean dev;
+
+        private Dependency replaces;
     }
 }
