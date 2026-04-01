@@ -405,6 +405,19 @@ public class AdvisoryService {
         return requestConfigsWithinNotes;
     }
 
+    private static Map<ProductVersionEntry, List<BuildItem>> getBuildDetails(ErrataBuildList buildList) {
+        return buildList.getProductVersions()
+                .values()
+                .stream()
+                .collect(
+                        Collectors.toMap(
+                                productVersionEntry -> productVersionEntry,
+                                productVersionEntry -> productVersionEntry.getBuilds()
+                                        .stream()
+                                        .flatMap(build -> build.getBuildItems().values().stream())
+                                        .toList()));
+    }
+
     private Collection<SbomGenerationRequest> handleStandardAdvisory(RequestEvent requestEvent, Errata erratum) {
         log.info(
                 "Advisory {} ({}) is standard (non Text-Only), with status {}",
@@ -426,21 +439,22 @@ public class AdvisoryService {
             return doIgnoreRequest(requestEvent, reason);
         }
 
-        ErrataBuildList erratumBuildList = errataClient.getBuildsList(String.valueOf(details.getId()));
-        Map<ProductVersionEntry, List<BuildItem>> buildDetails = erratumBuildList.getProductVersions()
-                .values()
-                .stream()
-                .collect(
-                        Collectors.toMap(
-                                productVersionEntry -> productVersionEntry,
-                                productVersionEntry -> productVersionEntry.getBuilds()
-                                        .stream()
-                                        .flatMap(build -> build.getBuildItems().values().stream())
-                                        .toList()));
+        String advisoryId = String.valueOf(details.getId());
+        ErrataBuildList erratumBuildList = errataClient.getBuildsList(advisoryId);
+        Map<ProductVersionEntry, List<BuildItem>> buildDetails = getBuildDetails(erratumBuildList);
+        boolean hasBuilds = buildDetails.values().stream().anyMatch(items -> !items.isEmpty());
+
+        // XXX: Fall back to /builds endpoint if /builds_list returned empty (e.g., module advisories)
+        if (!hasBuilds) {
+            log.debug("No builds from /builds_list for advisory {}, trying /builds", advisoryId);
+            erratumBuildList = errataClient.getBuilds(advisoryId);
+            buildDetails = getBuildDetails(erratumBuildList);
+            hasBuilds = buildDetails.values().stream().anyMatch(items -> !items.isEmpty());
+        }
 
         // The are cases where an advisory might have no builds, let's ignore them to avoid a pending request
-        if (buildDetails.values().stream().filter(Objects::nonNull).mapToInt(List::size).sum() == 0) {
-            String reason = String.format("The standard errata advisory has no retrievable builds attached, skipping!");
+        if (!hasBuilds) {
+            String reason = "The standard errata advisory has no retrievable builds attached, skipping!";
             return doIgnoreRequest(requestEvent, reason);
         }
 
@@ -485,7 +499,7 @@ public class AdvisoryService {
                         GenerationRequestType.CONTAINERIMAGE);
             }
 
-        } else {
+        } else if (details.getContentTypes().contains("rpm") || details.getContentTypes().contains("module")) {
             if (successfulRequestRecord == null) {
                 ErrataProduct product = errataClient.getProduct(details.getProduct().getShortName());
                 return createBuildManifestsForRPMBuilds(requestEvent, details, product, buildDetails);
@@ -496,6 +510,11 @@ public class AdvisoryService {
                         buildDetails,
                         GenerationRequestType.BREW_RPM);
             }
+
+        } else {
+            String reason = String
+                    .format("The standard errata advisory has unhandled content-types (%s)", details.getContentTypes());
+            return doIgnoreRequest(requestEvent, reason);
         }
     }
 

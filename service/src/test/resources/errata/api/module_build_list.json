@@ -1,0 +1,18 @@
+{
+  "RHEL-8.1.0.Z.MAIN+EUS": {
+    "name": "RHEL-8.1.0.Z.MAIN+EUS",
+    "description": "Red Hat Enterprise Linux 8",
+    "builds": [
+      {
+        "testmodule-private_foo_rhel_8.1.0-8010020260225154026.abcdef12": {
+          "nvr": "testmodule-private_foo_rhel_8.1.0-8010020260225154026.abcdef12",
+          "nevr": "testmodule-0:private_foo_rhel_8.1.0-8010020260225154026.abcdef12",
+          "id": 1234567,
+          "is_module": true,
+          "variant_arch": {},
+          "added_by": "foo"
+        }
+      }
+    ]
+  }
+}

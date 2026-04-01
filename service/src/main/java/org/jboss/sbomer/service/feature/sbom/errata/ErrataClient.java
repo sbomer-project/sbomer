@@ -162,7 +162,7 @@ public interface ErrataClient {
     @BeforeRetry(RetryLogger.class)
     Errata addCommentToErratum(@PathParam("id") String erratumId, String comment);
 
-    // Fetch the Brew builds associated with an advisory.
+    // Fetch the Brew builds list associated with an advisory
     @Traced
     @SpanName("errata.build_list.get")
     @GET
@@ -175,6 +175,20 @@ public interface ErrataClient {
     @ExponentialBackoff
     @BeforeRetry(RetryLogger.class)
     ErrataBuildList getBuildsList(@PathParam("id") String erratumId);
+
+    // Fetch the Brew builds associated with an advisory
+    @Traced
+    @SpanName("errata.builds.get")
+    @GET
+    @Path("/erratum/{id}/builds")
+    @Retry(
+            maxRetries = ERRATA_CLIENT_MAX_RETRIES,
+            delay = ERRATA_CLIENT_DELAY,
+            delayUnit = ChronoUnit.SECONDS,
+            abortOn = UnauthorizedException.class)
+    @ExponentialBackoff
+    @BeforeRetry(RetryLogger.class)
+    ErrataBuildList getBuilds(@PathParam("id") String erratumId);
 
     // Get the CDN repositories
     @Traced

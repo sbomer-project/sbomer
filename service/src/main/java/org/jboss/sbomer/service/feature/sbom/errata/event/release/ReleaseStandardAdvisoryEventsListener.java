@@ -131,7 +131,6 @@ public class ReleaseStandardAdvisoryEventsListener extends AbstractEventsListene
                         advisoryManifestsRecord);
 
                 if (erratum.getDetails().get().getContentTypes().contains("docker")) {
-
                     log.debug(
                             "Creating release manifests for Docker builds of advisory: '{}'[{}]",
                             erratum.getDetails().get().getFulladvisory(),
@@ -146,13 +145,13 @@ public class ReleaseStandardAdvisoryEventsListener extends AbstractEventsListene
                             productType,
                             productVersionToCPEs,
                             nvrToBuildGeneration);
-                } else {
 
+                } else if (erratum.getDetails().get().getContentTypes().contains("rpm")
+                        || erratum.getDetails().get().getContentTypes().contains("module")) {
                     log.debug(
                             "Creating release manifests for RPM builds of advisory: '{}'[{}]",
                             erratum.getDetails().get().getFulladvisory(),
                             erratum.getDetails().get().getId());
-
                     releaseManifestsForRPMBuilds(
                             requestEvent,
                             erratum,
@@ -163,6 +162,13 @@ public class ReleaseStandardAdvisoryEventsListener extends AbstractEventsListene
                             productType,
                             productVersionToCPEs,
                             nvrToBuildGeneration);
+
+                } else {
+                    log.warn(
+                            "Unhandled content-types ({}) of advisory: '{}'[{}]",
+                            erratum.getDetails().get().getContentTypes(),
+                            erratum.getDetails().get().getFulladvisory(),
+                            erratum.getDetails().get().getId());
                 }
             } catch (Exception e) {
                 log.error(
