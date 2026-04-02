@@ -80,11 +80,10 @@ sbomer:
   ## GitLab configuration
   gitlab:
     #host:
-  ## GitHub configuration
+  ## GitHub Enterprise configuration
   github:
-    ## (optional) Hostname of the GitHub server used to match SCM URLs.
-    ## For public GitHub use: api.github.com
-    ## For GitHub Enterprise use: <host>/api/v3 (e.g. github.ibm.com/api/v3)
+    ## Hostname of the GitHub Enterprise server.
+    ## Example: github.ibm.com
     #host:
     #token:
   koji:

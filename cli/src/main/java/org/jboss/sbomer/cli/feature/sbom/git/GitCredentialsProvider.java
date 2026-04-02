@@ -33,8 +33,8 @@ public class GitCredentialsProvider {
     @ConfigProperty(name = "sbomer.github.token")
     Optional<String> githubToken;
 
-    @ConfigProperty(name = "sbomer.github.host", defaultValue = "github.com")
-    String githubHost;
+    @ConfigProperty(name = "sbomer.github.host")
+    Optional<String> githubHost;
 
     /**
      * Get credentials provider for the given SCM URL. Returns null if no credentials are configured or needed.
@@ -62,16 +62,19 @@ public class GitCredentialsProvider {
             }
         }
 
-        log.debug("No credentials configured for SCM host, attempting public clone from: {}", scmUrl);
+        log.debug("No credentials configured for url {}", scmUrl);
         return null;
     }
 
     /**
-     * Check if URL is a GitHub URL (including GitHub Enterprise)
+     * Check if URL is a GitHub Enterprise URL. Checks if the URL contains the configured GitHub host.
      */
     private boolean isGitHubUrl(String url) {
-        return url.contains(githubHost.toLowerCase()) || url.contains("github.com")
-                || url.contains("git@github.com") || url.contains("git@" + githubHost.toLowerCase());
+        if (!githubHost.isPresent()) {
+            return false;
+        }
+        String host = githubHost.get().toLowerCase();
+        return url.contains(host) || url.contains("git@" + host);
     }
 
     /**
@@ -81,4 +84,3 @@ public class GitCredentialsProvider {
         return getCredentials(scmUrl) != null;
     }
 }
-

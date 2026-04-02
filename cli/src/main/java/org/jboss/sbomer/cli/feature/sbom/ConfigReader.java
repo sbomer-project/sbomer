@@ -18,13 +18,14 @@
 package org.jboss.sbomer.cli.feature.sbom;
 
 import java.util.Base64;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.pnc.dto.Build;
-import org.jboss.sbomer.cli.feature.sbom.client.GitHubClient;
+import org.jboss.sbomer.cli.feature.sbom.client.GitHubEnterpriseClient;
 import org.jboss.sbomer.cli.feature.sbom.client.GitLabClient;
 import org.jboss.sbomer.cli.feature.sbom.client.GitilesClient;
 import org.jboss.sbomer.core.errors.ClientException;
@@ -55,17 +56,17 @@ public class ConfigReader {
 
     @Inject
     @RestClient
-    GitHubClient gitHubClient;
+    GitHubEnterpriseClient gitHubEnterpriseClient;
 
     @ConfigProperty(name = "sbomer.gitlab.host", defaultValue = "gitlab.com")
     @Getter
     @Setter
     String gitLabHost;
 
-    @ConfigProperty(name = "sbomer.github.host", defaultValue = "github.com")
+    @ConfigProperty(name = "sbomer.github.host")
     @Getter
     @Setter
-    String gitHubHost;
+    Optional<String> gitHubHost;
 
     @Getter
     final ObjectMapper yamlObjectMapper = ObjectMapperProvider.yaml();
@@ -179,7 +180,7 @@ public class ConfigReader {
                 scmTag);
 
         try {
-            String jsonResponse = gitHubClient.fetchFile(owner, repo, CONFIG_PATH, scmTag);
+            String jsonResponse = gitHubEnterpriseClient.fetchFile(owner, repo, CONFIG_PATH, scmTag);
 
             // GitHub API returns JSON with base64 encoded content
             // Parse the JSON to extract the content field

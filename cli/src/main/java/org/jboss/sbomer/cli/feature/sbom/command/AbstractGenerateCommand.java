@@ -355,7 +355,7 @@ public abstract class AbstractGenerateCommand implements Callable<Integer> {
                 .setDirectory(path.toFile())
                 .setURI(url)
                 .setBranch(tag)
-                .setDepth(1);  // Shallow clone for efficiency
+                .setDepth(1); // Shallow clone for efficiency
 
         // Add credentials if available
         CredentialsProvider credentials = gitCredentialsProvider.getCredentials(url);

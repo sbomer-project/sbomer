@@ -28,11 +28,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Base64;
+import java.util.Optional;
 
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.pnc.dto.Build;
 import org.jboss.sbomer.cli.feature.sbom.ConfigReader;
-import org.jboss.sbomer.cli.feature.sbom.client.GitHubClient;
+import org.jboss.sbomer.cli.feature.sbom.client.GitHubEnterpriseClient;
 import org.jboss.sbomer.cli.feature.sbom.client.GitLabClient;
 import org.jboss.sbomer.cli.feature.sbom.client.GitilesClient;
 import org.jboss.sbomer.core.errors.ApplicationException;
@@ -333,7 +334,7 @@ class ConfigReaderIT {
 
         @InjectMock
         @RestClient
-        GitHubClient gitHubClient;
+        GitHubEnterpriseClient gitHubEnterpriseClient;
 
         final Build build = Build.builder()
                 .id("ARYT3LBXDVYAC")
@@ -343,13 +344,13 @@ class ConfigReaderIT {
 
         @BeforeEach
         void configureGitHubHost() {
-            configReader.setGitHubHost("github.ibm.com");
+            configReader.setGitHubHost(Optional.of("github.ibm.com"));
         }
 
         @Test
         void testConfigDoesNotExist() {
             Mockito.when(
-                    gitHubClient.fetchFile(
+                    gitHubEnterpriseClient.fetchFile(
                             "pnc-stage",
                             "hibernate-hibernate-orm-product",
                             ".sbomer/config.yaml",
@@ -366,7 +367,7 @@ class ConfigReaderIT {
             String jsonResponse = String.format("{\"content\":\"%s\",\"encoding\":\"base64\"}", base64Content);
 
             Mockito.when(
-                    gitHubClient.fetchFile(
+                    gitHubEnterpriseClient.fetchFile(
                             "pnc-stage",
                             "hibernate-hibernate-orm-product",
                             ".sbomer/config.yaml",
@@ -395,13 +396,15 @@ class ConfigReaderIT {
             String jsonResponse = String.format("{\"content\":\"%s\",\"encoding\":\"base64\"}", base64Content);
 
             Mockito.when(
-                    gitHubClient.fetchFile("platform", "requirements", ".sbomer/config.yaml", "1.3.0.redhat-00013"))
+                    gitHubEnterpriseClient
+                            .fetchFile("platform", "requirements", ".sbomer/config.yaml", "1.3.0.redhat-00013"))
                     .thenReturn(jsonResponse);
 
             assertNotNull(configReader.getConfig(build2));
 
             Mockito.when(
-                    gitHubClient.fetchFile("platform", "requirements", ".sbomer/config.yaml", "0.3.0.redhat-00003"))
+                    gitHubEnterpriseClient
+                            .fetchFile("platform", "requirements", ".sbomer/config.yaml", "0.3.0.redhat-00003"))
                     .thenReturn(jsonResponse);
 
             assertNotNull(configReader.getConfig(build3));

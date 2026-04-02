@@ -27,13 +27,14 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.QueryParam;
 
 /**
- * Client used to interact with the SCM (GitHub) to fetch the config file for a particular build.
+ * Client used to interact with the SCM (GitHub Enterprise) to fetch the config file for a particular build. The /api/v3
+ * path is included in the endpoint path for GitHub Enterprise compatibility.
  */
 @ApplicationScoped
 @RegisterRestClient(configKey = "github")
 @RegisterProvider(GitHubClientRequestFilter.class)
-@Path("/")
-public interface GitHubClient {
+@Path("/api/v3")
+public interface GitHubEnterpriseClient {
     /**
      * Fetch content of the file at the provided {@code path} in the GitHub repository {@code owner}/{@code repo}
      * identified by the {@code ref}.
