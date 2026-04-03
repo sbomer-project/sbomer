@@ -18,21 +18,25 @@
 package org.jboss.sbomer.service.feature.sbom.errata.dto;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ErrataBuildList {
 
-    private Map<String, ProductVersionEntry> productVersions = new HashMap<>();
+    private Map<String, ProductVersionEntry> productVersions = new LinkedHashMap<>();
 
     @JsonAnySetter
     public void addProductVersion(String name, ProductVersionEntry productVersionEntry) {
@@ -41,16 +45,21 @@ public class ErrataBuildList {
 
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public static class ProductVersionEntry {
         private String name;
         private String description;
         private List<Build> builds = new ArrayList<>();
+        private SigKey sigKey;
+        private SigKey containerSigKey;
+        private SigKey defaultSigKey;
+        private SigKey imaSigKey;
     }
 
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Build {
-        private Map<String, BuildItem> buildItems = new HashMap<>();
+        private Map<String, BuildItem> buildItems = new LinkedHashMap<>();
 
         @JsonAnySetter
         public void addBuildItem(String name, BuildItem buildItem) {
@@ -60,28 +69,42 @@ public class ErrataBuildList {
 
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public static class BuildItem {
         private String nvr;
         private String nevr;
         private Long id;
         @JsonProperty("is_module")
         private boolean isModule;
-        @JsonProperty("added_by")
         private String addedBy;
         @JsonProperty("is_signed")
         private boolean isSigned;
-        @JsonProperty("variant_arch")
-        private Map<String, VariantArch> variantArch = new HashMap<>();
+        private Map<String, VariantArch> variantArch = new LinkedHashMap<>();
+        private SigKey sigKey;
+    }
 
-        @JsonAnySetter
-        public void addVariantArch(String variantName, VariantArch variantArchItem) {
-            this.variantArch.put(variantName, variantArchItem);
+    public static class VariantArch extends LinkedHashMap<String, List<BrewFile>> {
+    }
+
+    @Data
+    @NoArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public static class BrewFile {
+        private String filename;
+        @JsonProperty("is_signed")
+        private boolean isSigned;
+
+        @JsonCreator
+        public BrewFile(String filename) {
+            this.filename = filename;
         }
     }
 
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class VariantArch {
-        // Empty class for now since we are not interested in any item inside
+    public static class SigKey {
+        private String keyid;
+        private String name;
     }
 }

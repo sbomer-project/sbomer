@@ -1,0 +1,44 @@
+{
+  "RHEL-7.1.Z": {
+    "builds": [
+      {
+        "rhel-server-docker-7.1-3": {
+          "added_by": null,
+          "id": 123456,
+          "is_module": false,
+          "is_signed": true,
+          "nevr": "rhel-server-docker-0:7.1-3",
+          "nvr": "rhel-server-docker-7.1-3",
+          "variant_arch": {
+            "7Server-7.1.Z": {
+              "x86_64": [
+                {
+                  "filename": "rhel-server-docker-7.1-3.x86_64.tar.gz",
+                  "is_signed": false
+                }
+              ]
+            }
+          },
+          "sig_key": {
+            "keyid": "abcdef12",
+            "name": "sigkey1"
+          }
+        }
+      }
+    ],
+    "container_sig_key": {
+      "keyid": "abcdef12",
+      "name": "sigkey1"
+    },
+    "default_sig_key": {
+      "keyid": "abcdef12",
+      "name": "sigkey1"
+    },
+    "description": "RHEL-7.1.Z",
+    "ima_sig_key": {
+      "keyid": "abcdef34",
+      "name": "imasigkey"
+    },
+    "name": "RHEL-7.1.Z"
+  }
+}
