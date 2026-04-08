@@ -29,6 +29,20 @@ public class EnvironmentAttributesUtils {
         // This is a utility class
     }
 
+    /**
+     * Mapping of Gradle versions from PNC to SDKMAN-compliant versions. PNC may provide incomplete version strings
+     * (e.g., "9") that need to be expanded to valid SDKMAN versions.
+     *
+     * For single-digit major versions, we map to the highest available X.0.Y patch version for that major version in
+     * SDKMAN (e.g., "9" -> "9.0.0", "8" -> "8.0.2").
+     *
+     * Add more mappings as needed when we get a mismatch
+     */
+    private static final Map<String, String> GRADLE_VERSION_OVERRIDES = Map.ofEntries(
+            Map.entry("9", "9.0.0"), // Highest 9.0.x available in SDKMAN
+            Map.entry("8", "8.0.2") // Highest 8.0.x available in SDKMAN
+    );
+
     private static final String SBT_ATTRIBUTE_KEY = "SBT";
     private static final String MAVEN_ATTRIBUTE_KEY = "MAVEN";
     private static final String GRADLE_ATTRIBUTE_KEY = "GRADLE";
@@ -87,11 +101,19 @@ public class EnvironmentAttributesUtils {
             return Optional.empty();
         }
 
-        return environmentAttributes.entrySet()
+        Optional<String> gradleVersion = environmentAttributes.entrySet()
                 .stream()
                 .filter(entry -> entry.getKey().equalsIgnoreCase(GRADLE_ATTRIBUTE_KEY))
                 .map(Map.Entry::getValue)
                 .findFirst();
+
+        if (gradleVersion.isPresent()) {
+            String version = gradleVersion.get().trim();
+            // Apply version override mapping if available (e.g., "9" -> "9.0.0")
+            return Optional.of(GRADLE_VERSION_OVERRIDES.getOrDefault(version, version));
+        }
+
+        return Optional.empty();
     }
 
     public static Optional<String> getJavaSDKManCompliantVersion(Map<String, String> environmentAttributes) {
