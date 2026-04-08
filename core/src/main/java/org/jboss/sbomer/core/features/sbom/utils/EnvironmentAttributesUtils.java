@@ -38,9 +38,11 @@ public class EnvironmentAttributesUtils {
      *
      * Add more mappings as needed when we get a mismatch
      */
-    private static final Map<String, String> GRADLE_VERSION_OVERRIDES = Map.ofEntries(
-            Map.entry("9", "9.0.0"), // Highest 9.0.x available in SDKMAN
-            Map.entry("8", "8.0.2") // Highest 8.0.x available in SDKMAN
+    private static final Map<String, String> GRADLE_VERSION_OVERRIDES = Map.of(
+            "9",
+            "9.0.0", // Highest 9.0.x available in SDKMAN
+            "8",
+            "8.0.2" // Highest 8.0.x available in SDKMAN
     );
 
     private static final String SBT_ATTRIBUTE_KEY = "SBT";
