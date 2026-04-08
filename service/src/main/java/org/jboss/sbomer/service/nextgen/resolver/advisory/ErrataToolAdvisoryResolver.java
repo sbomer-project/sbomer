@@ -32,7 +32,6 @@ import org.eclipse.microprofile.faulttolerance.Retry;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.pnc.build.finder.koji.KojiClientSession;
 import org.jboss.sbomer.core.errors.ClientException;
-import org.jboss.sbomer.core.features.sbom.provider.KojiProvider;
 import org.jboss.sbomer.core.rest.faulttolerance.RetryLogger;
 import org.jboss.sbomer.service.feature.sbom.errata.ErrataClient;
 import org.jboss.sbomer.service.feature.sbom.errata.dto.Errata;
@@ -59,6 +58,7 @@ import com.redhat.red.build.koji.model.xmlrpc.KojiIdOrName;
 
 import io.smallrye.faulttolerance.api.BeforeRetry;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 
@@ -69,7 +69,9 @@ public class ErrataToolAdvisoryResolver extends AbstractResolver {
     private static final int BATCH_SIZE = 50;
     public static final String RESOLVER_TYPE = "et-advisory";
 
-    KojiProvider kojiProvider;
+    @Inject
+    Instance<KojiClientSession> kojiSessionInstance;
+
     KojiClientSession kojiSession;
 
     ErrataClient errataClient;
@@ -82,12 +84,10 @@ public class ErrataToolAdvisoryResolver extends AbstractResolver {
     public ErrataToolAdvisoryResolver(
             ManagedExecutor managedExecutor,
             @TracingRestClient ErrataClient errataClient,
-            KojiProvider kojiProvider,
             @RestClient SBOMerClient sbomerClient) {
         super(sbomerClient, managedExecutor);
 
         this.errataClient = errataClient;
-        this.kojiProvider = kojiProvider;
     }
 
     @Override
@@ -278,11 +278,12 @@ public class ErrataToolAdvisoryResolver extends AbstractResolver {
     @Retry(maxRetries = 10, retryOn = KojiClientException.class)
     @BeforeRetry(RetryLogger.class)
     protected Map<Long, String> getImageNamesFromBuilds(List<Long> buildIds) throws KojiClientException {
+        KojiClientSession session = getKojiSession();
         List<CompletableFuture<Map<Long, String>>> futures = new ArrayList<>();
 
         for (int i = 0; i < buildIds.size(); i += BATCH_SIZE) {
             List<Long> batch = buildIds.subList(i, Math.min(i + BATCH_SIZE, buildIds.size()));
-            futures.add(CompletableFuture.supplyAsync(() -> fetchImageNames(batch), managedExecutor));
+            futures.add(CompletableFuture.supplyAsync(() -> fetchImageNames(session, batch), managedExecutor));
         }
 
         Map<Long, String> merged = new HashMap<>();
@@ -293,9 +294,8 @@ public class ErrataToolAdvisoryResolver extends AbstractResolver {
                 merged.putAll(future.get());
             }
         } catch (InterruptedException | ExecutionException e) {
-            // Explicitly throw the exception again so that retry can happen
             log.error("Error while fetching image names for builds: {}", buildIds, e);
-            kojiSession = null;
+            destroyKojiSession();
             throw new KojiClientException("Batch processing failed", e);
         }
 
@@ -306,17 +306,24 @@ public class ErrataToolAdvisoryResolver extends AbstractResolver {
     @BeforeRetry(RetryLogger.class)
     protected KojiClientSession getKojiSession() throws KojiClientException {
         if (kojiSession == null) {
-            kojiSession = kojiProvider.createSession();
+            kojiSession = kojiSessionInstance.get();
         }
         return kojiSession;
     }
 
-    protected Map<Long, String> fetchImageNames(List<Long> buildIds) {
+    protected void destroyKojiSession() {
+        if (kojiSession != null) {
+            kojiSessionInstance.destroy(kojiSession);
+            kojiSession = null;
+        }
+    }
+
+    protected Map<Long, String> fetchImageNames(KojiClientSession session, List<Long> buildIds) {
         try {
             Map<Long, String> buildsToImageName = new HashMap<>();
             List<KojiIdOrName> ids = buildIds.stream().map(id -> new KojiIdOrName(id.intValue())).toList();
 
-            List<KojiBuildInfo> buildInfos = getKojiSession().getBuild(ids);
+            List<KojiBuildInfo> buildInfos = session.getBuild(ids);
 
             for (KojiBuildInfo info : buildInfos) {
                 Map<String, Object> extra = info.getExtra();
@@ -358,7 +365,7 @@ public class ErrataToolAdvisoryResolver extends AbstractResolver {
             return buildsToImageName;
         } catch (KojiClientException e) {
             log.error("Unable to fetch containers information for buildIDs (batch): {}", buildIds, e);
-            kojiSession = null;
+            destroyKojiSession();
             throw new RuntimeException(e);
         }
     }
