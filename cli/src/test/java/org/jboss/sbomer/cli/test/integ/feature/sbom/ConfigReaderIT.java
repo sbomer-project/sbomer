@@ -362,9 +362,7 @@ class ConfigReaderIT {
 
         @Test
         void testConfigMultipleProducts() throws IOException {
-            // GitHub API returns JSON with base64 encoded content
-            String base64Content = Base64.getEncoder().encodeToString(getTestConfigAsBytes("multi-product.yaml"));
-            String jsonResponse = String.format("{\"content\":\"%s\",\"encoding\":\"base64\"}", base64Content);
+            String rawContent = new String(getTestConfigAsBytes("multi-product.yaml"));
 
             Mockito.when(
                     gitHubEnterpriseClient.fetchFile(
@@ -372,7 +370,7 @@ class ConfigReaderIT {
                             "hibernate-hibernate-orm-product",
                             ".sbomer/config.yaml",
                             "1.1.0.redhat-00008"))
-                    .thenReturn(jsonResponse);
+                    .thenReturn(rawContent);
 
             assertNotNull(configReader.getConfig(build));
         }
@@ -392,20 +390,19 @@ class ConfigReaderIT {
                     .scmTag("0.3.0.redhat-00003")
                     .build();
 
-            String base64Content = Base64.getEncoder().encodeToString(getTestConfigAsBytes("multi-product.yaml"));
-            String jsonResponse = String.format("{\"content\":\"%s\",\"encoding\":\"base64\"}", base64Content);
+            String rawContent = new String(getTestConfigAsBytes("multi-product.yaml"));
 
             Mockito.when(
                     gitHubEnterpriseClient
                             .fetchFile("platform", "requirements", ".sbomer/config.yaml", "1.3.0.redhat-00013"))
-                    .thenReturn(jsonResponse);
+                    .thenReturn(rawContent);
 
             assertNotNull(configReader.getConfig(build2));
 
             Mockito.when(
                     gitHubEnterpriseClient
                             .fetchFile("platform", "requirements", ".sbomer/config.yaml", "0.3.0.redhat-00003"))
-                    .thenReturn(jsonResponse);
+                    .thenReturn(rawContent);
 
             assertNotNull(configReader.getConfig(build3));
         }

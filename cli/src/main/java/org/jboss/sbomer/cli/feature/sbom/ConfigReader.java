@@ -17,6 +17,7 @@
  */
 package org.jboss.sbomer.cli.feature.sbom;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -32,7 +33,6 @@ import org.jboss.sbomer.core.errors.ClientException;
 import org.jboss.sbomer.core.features.sbom.config.Config;
 import org.jboss.sbomer.core.features.sbom.utils.ObjectMapperProvider;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -170,8 +170,6 @@ public class ConfigReader {
 
         log.debug("Found GitHub repository: '{}/{}'", owner, repo);
 
-        String base64Config;
-
         log.debug(
                 "Fetching file '{}' from the '{}/{}' GitHub repository with tag '{}'",
                 CONFIG_PATH,
@@ -180,12 +178,9 @@ public class ConfigReader {
                 scmTag);
 
         try {
-            String jsonResponse = gitHubEnterpriseClient.fetchFile(owner, repo, CONFIG_PATH, scmTag);
-
-            // GitHub API returns JSON with base64 encoded content
-            // Parse the JSON to extract the content field
-            JsonNode jsonNode = jsonObjectMapper.readTree(jsonResponse);
-            base64Config = jsonNode.get("content").asText();
+            String rawContent = gitHubEnterpriseClient.fetchFile(owner, repo, CONFIG_PATH, scmTag);
+            log.debug("Successfully fetched the config file content from GitHub, length: {}", rawContent.length());
+            return rawContent.getBytes(StandardCharsets.UTF_8);
         } catch (Exception e) {
             log.debug(
                     "SBOMer configuration file could not be retrieved in the '{}/{}' repository with '{}' tag, ignoring",
@@ -193,11 +188,9 @@ public class ConfigReader {
                     repo,
                     scmTag,
                     e);
-
             return new byte[0];
         }
 
-        return Base64.getDecoder().decode(base64Config);
     }
 
     public Config getConfig(Build build) {

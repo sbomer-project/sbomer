@@ -24,6 +24,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 
 /**
@@ -47,6 +48,7 @@ public interface GitHubEnterpriseClient {
      */
     @GET
     @Path("/repos/{owner}/{repo}/contents/{path}")
+    @Produces("application/vnd.github.raw+json")
     String fetchFile(
             @PathParam("owner") String owner,
             @PathParam("repo") String repo,
