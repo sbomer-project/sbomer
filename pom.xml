@@ -61,7 +61,7 @@
     <version.quarkus-platform>3.20.3</version.quarkus-platform>
     <version.quarkus-operator-sdk>7.1.4</version.quarkus-operator-sdk>
 
-    <version.cyclonedx>9.1.0-patch</version.cyclonedx>
+    <version.cyclonedx>12.1.0</version.cyclonedx>
     <version.lombok>1.18.42</version.lombok>
     <version.pnc>3.2.9</version.pnc>
     <version.pnc-api>3.2.4</version.pnc-api>
