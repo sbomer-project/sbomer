@@ -1,5 +1,5 @@
 # https://catalog.redhat.com/software/containers/ubi9/nginx-120/61a609f2bfd4a5234d596287
-FROM registry.access.redhat.com/ubi9/nginx-120@sha256:f4a47712867390a744119de36cdac8a4738977bb9473744a94a8c9302e597411
+FROM registry.access.redhat.com/ubi9/nginx-120@sha256:c791d4f7b65e819641aa16ef0933df1c965525449109001c12d039bad610437f
 
 COPY ui/dist/ .
 COPY images/sbomer-ui/run-with-env.sh /deployments/run-with-env.sh
