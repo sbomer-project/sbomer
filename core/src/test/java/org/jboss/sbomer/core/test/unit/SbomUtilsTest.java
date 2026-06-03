@@ -766,8 +766,8 @@ class SbomUtilsTest {
                 expectedVersionedPurl,
                 c.getEvidence().getIdentities().get(0).getConcludedValue(),
                 "Evidence identity purl should still be updated");
-        
-        //If we do not alter the purl then we shouldn't touch the bomref either
+
+        // If we do not alter the purl then we shouldn't touch the bomref either
         assertNull(c.getBomRef(), "BomRef should not be updated");
     }
 

@@ -1859,7 +1859,8 @@ public class SbomUtils {
                             String oldPurl = topLevel.canonicalize();
                             String newPurl = versionedComponentPurl.canonicalize();
                             c.setPurl(newPurl);
-                            // Also update bomRef to match the new purl, but only if bomRef exists and matches the old purl
+                            // Also update bomRef to match the new purl, but only if bomRef exists and matches the old
+                            // purl
                             if (c.getBomRef() != null && oldPurl.equals(c.getBomRef())) {
                                 c.setBomRef(newPurl);
                                 log.debug("Updated component purl and bomRef from {} to {}", oldPurl, newPurl);
