@@ -1856,11 +1856,16 @@ public class SbomUtils {
                         GenericPurlWrapperUtil componentPurlWrapper = new GenericPurlWrapperUtil(topLevel);
                         PackageURL versionedComponentPurl = componentPurlWrapper.getVersionedPurl();
                         if (versionedComponentPurl != null) {
-                            c.setPurl(versionedComponentPurl.canonicalize());
-                            log.debug(
-                                    "Updated component purl from {} to {}",
-                                    topLevel.canonicalize(),
-                                    versionedComponentPurl.canonicalize());
+                            String oldPurl = topLevel.canonicalize();
+                            String newPurl = versionedComponentPurl.canonicalize();
+                            c.setPurl(newPurl);
+                            // Also update bomRef to match the new purl
+                            if (oldPurl.equals(c.getBomRef())) {
+                                c.setBomRef(newPurl);
+                                log.debug("Updated component purl and bomRef from {} to {}", oldPurl, newPurl);
+                            } else {
+                                log.debug("Updated component purl from {} to {}", oldPurl, newPurl);
+                            }
                         }
                     } catch (MalformedPackageURLException e) {
                         log.warn("Can't extract version from component generic purl: {}", e.getMessage());
