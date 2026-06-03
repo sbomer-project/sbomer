@@ -766,6 +766,9 @@ class SbomUtilsTest {
                 expectedVersionedPurl,
                 c.getEvidence().getIdentities().get(0).getConcludedValue(),
                 "Evidence identity purl should still be updated");
+        
+        //If we do not alter the purl then we shouldn't touch the bomref either
+        assertNull(c.getBomRef(), "BomRef should not be updated");
     }
 
     @Test
@@ -797,5 +800,141 @@ class SbomUtilsTest {
                 expectedEvidencePurl,
                 c.getEvidence().getIdentities().get(1).getConcludedValue(),
                 "Evidence identity should be updated with the longer purl");
+    }
+
+    @Test
+    void testSetPurlVersionFromGenericUpdatesBomRef() {
+        String inputPurl = "pkg:generic/jboss-eap-7.4-runtime-maven-repository.zip";
+        String expectedVersionedPurl = "pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4";
+
+        Component c = new Component();
+        c.setPurl(inputPurl);
+        // Set bomRef to match the original purl (as would be done in createComponent)
+        c.setBomRef(inputPurl);
+
+        // Call with feature flag enabled
+        SbomUtils.setPurlVersionFromGeneric(c, true);
+
+        // Verify component.purl was updated
+        assertEquals(
+                expectedVersionedPurl,
+                c.getPurl(),
+                "Component purl should be updated when feature flag is enabled");
+
+        // Verify bomRef was also updated to match the new purl
+        assertEquals(expectedVersionedPurl, c.getBomRef(), "Component bomRef should be updated to match the new purl");
+    }
+
+    @Test
+    void testSetPurlVersionFromGenericDoesNotUpdateMismatchedBomRef() {
+        String inputPurl = "pkg:generic/jboss-eap-7.4-runtime-maven-repository.zip";
+        String differentBomRef = "pkg:generic/some-other-component.zip";
+        String expectedVersionedPurl = "pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4";
+
+        Component c = new Component();
+        c.setPurl(inputPurl);
+        // Set bomRef to a different value (edge case where bomRef != purl)
+        c.setBomRef(differentBomRef);
+
+        // Call with feature flag enabled
+        SbomUtils.setPurlVersionFromGeneric(c, true);
+
+        // Verify component.purl was updated
+        assertEquals(
+                expectedVersionedPurl,
+                c.getPurl(),
+                "Component purl should be updated when feature flag is enabled");
+
+        // Verify bomRef was NOT updated since it didn't match the original purl
+        assertEquals(
+                differentBomRef,
+                c.getBomRef(),
+                "Component bomRef should NOT be updated when it doesn't match the original purl");
+    }
+
+    @Test
+    void testSetPurlVersionFromGenericWithCreateComponentAndFeatureFlagEnabled() {
+        // Setup: Create component using createComponent helper with EAP-style PURL
+        String inputPurl = "pkg:generic/jboss-eap-7.4.22-runtime-maven-repository.zip";
+        String expectedVersionedPurl = "pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4.22";
+
+        Component component = createComponent(
+                "jboss-eap",
+                "7.4.22",
+                "runtime-maven-repository.zip",
+                "EAP runtime maven repository",
+                inputPurl,
+                Type.FILE);
+
+        // Verify initial state: createComponent sets bomRef to match purl
+        assertEquals(inputPurl, component.getPurl(), "Initial purl should match input");
+        assertEquals(inputPurl, component.getBomRef(), "Initial bomRef should match purl (set by createComponent)");
+
+        // Act: Call setPurlVersionFromGeneric with feature flag enabled
+        SbomUtils.setPurlVersionFromGeneric(component, true);
+
+        // Assert: Component purl should be updated with version extracted from filename
+        assertEquals(
+                expectedVersionedPurl,
+                component.getPurl(),
+                "Component purl should be updated to versioned purl when feature flag is enabled");
+
+        // Assert: BomRef should be updated to match the new versioned purl
+        assertEquals(
+                expectedVersionedPurl,
+                component.getBomRef(),
+                "Component bomRef should be updated to match the new versioned purl");
+
+        // Assert: Evidence identities should contain the versioned purl
+        assertNotNull(component.getEvidence(), "Evidence should be created");
+        assertNotNull(component.getEvidence().getIdentities(), "Evidence identities should be created");
+        assertTrue(component.getEvidence().getIdentities().size() > 0, "Should have at least one identity");
+        assertEquals(
+                expectedVersionedPurl,
+                component.getEvidence().getIdentities().get(0).getConcludedValue(),
+                "Evidence identity should contain the versioned purl");
+    }
+
+    @Test
+    void testSetPurlVersionFromGenericWithCreateComponentAndFeatureFlagDisabled() {
+        // Setup: Create component using createComponent helper with EAP-style PURL
+        String inputPurl = "pkg:generic/jboss-eap-7.4.22-runtime-maven-repository.zip";
+        String expectedVersionedPurl = "pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4.22";
+
+        Component component = createComponent(
+                "jboss-eap",
+                "7.4.22",
+                "runtime-maven-repository.zip",
+                "EAP runtime maven repository",
+                inputPurl,
+                Type.FILE);
+
+        // Verify initial state
+        assertEquals(inputPurl, component.getPurl(), "Initial purl should match input");
+        assertEquals(inputPurl, component.getBomRef(), "Initial bomRef should match purl (set by createComponent)");
+
+        // Act: Call setPurlVersionFromGeneric with feature flag disabled
+        SbomUtils.setPurlVersionFromGeneric(component, false);
+
+        // Assert: Component purl should NOT be updated when feature flag is disabled
+        assertEquals(
+                inputPurl,
+                component.getPurl(),
+                "Component purl should NOT be updated when feature flag is disabled");
+
+        // Assert: BomRef should NOT be updated when feature flag is disabled
+        assertEquals(
+                inputPurl,
+                component.getBomRef(),
+                "Component bomRef should NOT be updated when feature flag is disabled");
+
+        // Assert: Evidence identities should still be updated (existing behavior preserved)
+        assertNotNull(component.getEvidence(), "Evidence should be created");
+        assertNotNull(component.getEvidence().getIdentities(), "Evidence identities should be created");
+        assertTrue(component.getEvidence().getIdentities().size() > 0, "Should have at least one identity");
+        assertEquals(
+                expectedVersionedPurl,
+                component.getEvidence().getIdentities().get(0).getConcludedValue(),
+                "Evidence identity should still be updated with versioned purl even when feature flag is disabled");
     }
 }
