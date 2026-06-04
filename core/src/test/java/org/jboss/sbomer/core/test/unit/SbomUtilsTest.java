@@ -937,4 +937,133 @@ class SbomUtilsTest {
                 component.getEvidence().getIdentities().get(0).getConcludedValue(),
                 "Evidence identity should still be updated with versioned purl even when feature flag is disabled");
     }
+
+    @Test
+    void testSetBomRef() {
+        String oldPurl = "pkg:generic/jboss-eap-7.4.22-runtime-maven-repository.zip";
+        String newPurl = "pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4.22";
+        Component c = new Component();
+        c.setName("jboss-eap");
+        c.setType(Type.FILE);
+        c.setPurl(oldPurl);
+        c.setBomRef(oldPurl);
+        Bom bom = new Bom();
+        bom.addComponent(c);
+        Dependency d = SbomUtils.createDependency(c.getBomRef());
+        bom.addDependency(d);
+        SbomUtils.setPurlVersionFromGeneric(bom, c, true);
+        assertEquals(newPurl, c.getPurl());
+        assertEquals(c.getPurl(), c.getBomRef());
+        assertEquals(c.getBomRef(), bom.getDependencies().get(0).getRef());
+    }
+
+    @Test
+    void testSetBomRefWithNonPurlBomRef() {
+        String oldPurl = "pkg:generic/jboss-eap-7.4.22-runtime-maven-repository.zip";
+        String newPurl = "pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4.22";
+        String nonPurlBomRef = "some-custom-bomref-id";
+
+        Component c = new Component();
+        c.setName("jboss-eap");
+        c.setType(Type.FILE);
+        c.setPurl(oldPurl);
+        c.setBomRef(nonPurlBomRef);
+
+        Bom bom = new Bom();
+        bom.addComponent(c);
+        Dependency d = SbomUtils.createDependency(c.getBomRef());
+        bom.addDependency(d);
+
+        SbomUtils.setPurlVersionFromGeneric(bom, c, true);
+
+        // Purl should be updated
+        assertEquals(newPurl, c.getPurl());
+        // BomRef should NOT be updated since it doesn't match the old purl
+        assertEquals(nonPurlBomRef, c.getBomRef());
+        // Dependency ref should remain unchanged
+        assertEquals(nonPurlBomRef, bom.getDependencies().get(0).getRef());
+    }
+
+    @Test
+    void testSetBomRefWithCanonicalization() {
+        // Use non-canonicalized PURL as bomRef
+        // Non-canonical PURL: qualifiers in reverse alphabetical order
+        String oldPurlNonCanonical = "pkg:generic/jboss-eap-7.4.22-runtime-maven-repository.zip?type=zip&arch=noarch";
+        // Canonical PURL: qualifiers in alphabetical order
+        String oldPurlCanonical = "pkg:generic/jboss-eap-7.4.22-runtime-maven-repository.zip?arch=noarch&type=zip";
+        String newPurl = "pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4.22?arch=noarch&type=zip";
+
+        Component c = new Component();
+        c.setName("jboss-eap");
+        c.setType(Type.FILE);
+        c.setPurl(oldPurlCanonical);
+        // Set bomRef to non-canonicalized version (should still match via canonicalization)
+        c.setBomRef(oldPurlNonCanonical);
+
+        Bom bom = new Bom();
+        bom.addComponent(c);
+        Dependency d = SbomUtils.createDependency(c.getBomRef());
+        bom.addDependency(d);
+
+        SbomUtils.setPurlVersionFromGeneric(bom, c, true);
+
+        // Both purl and bomRef should be updated
+        assertEquals(newPurl, c.getPurl());
+        assertEquals(newPurl, c.getBomRef());
+        // Dependency ref should be updated to new purl
+        assertEquals(newPurl, bom.getDependencies().get(0).getRef());
+    }
+
+    @Test
+    void testSetBomRefWithNestedDependencies() {
+        String oldPurl = "pkg:generic/jboss-eap-7.4.22-runtime-maven-repository.zip";
+        String newPurl = "pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4.22";
+
+        Component c = new Component();
+        c.setName("jboss-eap");
+        c.setType(Type.FILE);
+        c.setPurl(oldPurl);
+        c.setBomRef(oldPurl);
+
+        Bom bom = new Bom();
+        bom.addComponent(c);
+
+        // Create nested dependency structure
+        Dependency mainDep = SbomUtils.createDependency("main-component");
+        Dependency nestedDep = SbomUtils.createDependency(c.getBomRef());
+        mainDep.addDependency(nestedDep);
+        bom.addDependency(mainDep);
+        bom.addDependency(SbomUtils.createDependency(c.getBomRef()));
+
+        SbomUtils.setPurlVersionFromGeneric(bom, c, true);
+
+        // Verify component updates
+        assertEquals(newPurl, c.getPurl());
+        assertEquals(newPurl, c.getBomRef());
+
+        // Verify top-level dependency was updated
+        assertEquals(newPurl, bom.getDependencies().get(1).getRef());
+
+        // Verify nested dependency was updated
+        assertEquals(newPurl, bom.getDependencies().get(0).getDependencies().get(0).getRef());
+    }
+
+    @Test
+    void testSetBomRefWithoutBom() {
+        String oldPurl = "pkg:generic/jboss-eap-7.4.22-runtime-maven-repository.zip";
+        String newPurl = "pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4.22";
+
+        Component c = new Component();
+        c.setName("jboss-eap");
+        c.setType(Type.FILE);
+        c.setPurl(oldPurl);
+        c.setBomRef(oldPurl);
+
+        // Call without Bom (backward compatibility - using overloaded method)
+        SbomUtils.setPurlVersionFromGeneric(c, true);
+
+        // Both purl and bomRef should be updated
+        assertEquals(newPurl, c.getPurl());
+        assertEquals(newPurl, c.getBomRef());
+    }
 }

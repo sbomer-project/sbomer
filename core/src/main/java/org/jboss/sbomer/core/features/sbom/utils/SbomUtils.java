@@ -1780,6 +1780,17 @@ public class SbomUtils {
      * @param updateComponentPurl if true, also update the component.purl field (controlled by feature flag)
      */
     public static void setPurlVersionFromGeneric(Component c, boolean updateComponentPurl) {
+        setPurlVersionFromGeneric(null, c, updateComponentPurl);
+    }
+
+    /**
+     * Set the version of a generic PURL by extracting it from the filename.
+     *
+     * @param bom the BOM containing the component (optional, for dependency updates)
+     * @param c the component to update
+     * @param updateComponentPurl if true, also update the component.purl field (controlled by feature flag)
+     */
+    public static void setPurlVersionFromGeneric(Bom bom, Component c, boolean updateComponentPurl) {
         // Grab toplevel and evidence purls
         final Optional<PackageURL> topLevelPurl = Optional.ofNullable(c.getPurl()).map(purl -> {
             try {
@@ -1856,16 +1867,34 @@ public class SbomUtils {
                         GenericPurlWrapperUtil componentPurlWrapper = new GenericPurlWrapperUtil(topLevel);
                         PackageURL versionedComponentPurl = componentPurlWrapper.getVersionedPurl();
                         if (versionedComponentPurl != null) {
-                            String oldPurl = topLevel.canonicalize();
+                            String oldPurl = c.getPurl();
                             String newPurl = versionedComponentPurl.canonicalize();
                             c.setPurl(newPurl);
-                            // Also update bomRef to match the new purl, but only if bomRef exists and matches the old
-                            // purl
-                            if (c.getBomRef() != null && oldPurl.equals(c.getBomRef())) {
-                                c.setBomRef(newPurl);
+                            log.debug("Updated component purl from {} to {}", oldPurl, newPurl);
+
+                            // Check if bomRef should be updated
+                            boolean bomRefMatches = false;
+                            String bomRef = c.getBomRef();
+
+                            if (bomRef != null) {
+                                try {
+                                    // Try to parse bomRef as a PURL and compare canonicalized versions
+                                    bomRefMatches = topLevel.isCanonicalEquals(new PackageURL(bomRef));
+                                } catch (MalformedPackageURLException e) {
+                                    // bomRef is not a valid PURL, compare with old purl string
+                                    bomRefMatches = bomRef.equals(oldPurl);
+                                }
+                            }
+
+                            if (bomRefMatches) {
+                                if (bom != null) {
+                                    // Use updateBomRef to propagate changes to dependencies
+                                    SbomUtils.updateBomRef(bom, c, bomRef, newPurl);
+                                } else {
+                                    // Fallback: just update the component's bomRef
+                                    c.setBomRef(newPurl);
+                                }
                                 log.debug("Updated component purl and bomRef from {} to {}", oldPurl, newPurl);
-                            } else {
-                                log.debug("Updated component purl from {} to {}", oldPurl, newPurl);
                             }
                         }
                     } catch (MalformedPackageURLException e) {
