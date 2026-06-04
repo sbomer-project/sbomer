@@ -829,7 +829,6 @@ class SbomUtilsTest {
     void testSetPurlVersionFromGenericDoesNotUpdateMismatchedBomRef() {
         String inputPurl = "pkg:generic/jboss-eap-7.4-runtime-maven-repository.zip";
         String differentBomRef = "pkg:generic/some-other-component.zip";
-        String expectedVersionedPurl = "pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4";
 
         Component c = new Component();
         c.setPurl(inputPurl);
@@ -839,17 +838,18 @@ class SbomUtilsTest {
         // Call with feature flag enabled
         SbomUtils.setPurlVersionFromGeneric(c, true);
 
-        // Verify component.purl was updated
+        // When bomRef doesn't match the original purl, the method should abort
+        // and NOT update either the purl or bomRef to avoid breaking dependency references
         assertEquals(
-                expectedVersionedPurl,
+                inputPurl,
                 c.getPurl(),
-                "Component purl should be updated when feature flag is enabled");
+                "Component purl should NOT be updated when bomRef doesn't match the original purl");
 
-        // Verify bomRef was NOT updated since it didn't match the original purl
+        // Verify bomRef remains unchanged
         assertEquals(
                 differentBomRef,
                 c.getBomRef(),
-                "Component bomRef should NOT be updated when it doesn't match the original purl");
+                "Component bomRef should remain unchanged when it doesn't match the original purl");
     }
 
     @Test
@@ -960,7 +960,6 @@ class SbomUtilsTest {
     @Test
     void testSetBomRefWithNonPurlBomRef() {
         String oldPurl = "pkg:generic/jboss-eap-7.4.22-runtime-maven-repository.zip";
-        String newPurl = "pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4.22";
         String nonPurlBomRef = "some-custom-bomref-id";
 
         Component c = new Component();
@@ -976,17 +975,15 @@ class SbomUtilsTest {
 
         SbomUtils.setPurlVersionFromGeneric(bom, c, true);
 
-        // Purl should be updated
-        assertEquals(newPurl, c.getPurl());
-        // BomRef should NOT be updated since it doesn't match the old purl
-        assertEquals(nonPurlBomRef, c.getBomRef());
-        // Dependency ref should remain unchanged
-        assertEquals(nonPurlBomRef, bom.getDependencies().get(0).getRef());
+        // When bomRef doesn't match the old purl, the method should abort
+        // and NOT update the purl to avoid breaking dependency references
+        assertEquals(oldPurl, c.getPurl(), "Purl should NOT be updated when bomRef doesn't match");
+        assertEquals(nonPurlBomRef, c.getBomRef(), "BomRef should remain unchanged");
+        assertEquals(nonPurlBomRef, bom.getDependencies().get(0).getRef(), "Dependency ref should remain unchanged");
     }
 
     @Test
     void testSetBomRefWithCanonicalization() {
-        // Use non-canonicalized PURL as bomRef
         // Non-canonical PURL: qualifiers in reverse alphabetical order
         String oldPurlNonCanonical = "pkg:generic/jboss-eap-7.4.22-runtime-maven-repository.zip?type=zip&arch=noarch";
         // Canonical PURL: qualifiers in alphabetical order

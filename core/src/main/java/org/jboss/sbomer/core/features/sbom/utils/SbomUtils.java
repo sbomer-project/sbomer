@@ -1869,12 +1869,14 @@ public class SbomUtils {
                         if (versionedComponentPurl != null) {
                             String oldPurl = c.getPurl();
                             String newPurl = versionedComponentPurl.canonicalize();
-                            c.setPurl(newPurl);
-                            log.debug("Updated component purl from {} to {}", oldPurl, newPurl);
-
-                            // Check if bomRef should be updated
-                            boolean bomRefMatches = false;
                             String bomRef = c.getBomRef();
+
+                            // Check if bomRef matches the old purl before proceeding
+                            // If bomRef exists but doesn't match, we should abort to avoid breaking dependency
+                            // references
+                            // If bomRef is null, we can proceed with the update
+                            boolean bomRefMatches = false;
+                            boolean shouldAbort = false;
 
                             if (bomRef != null) {
                                 try {
@@ -1884,8 +1886,28 @@ public class SbomUtils {
                                     // bomRef is not a valid PURL, compare with old purl string
                                     bomRefMatches = bomRef.equals(oldPurl);
                                 }
+
+                                // If bomRef exists but doesn't match the old purl, abort
+                                if (!bomRefMatches) {
+                                    shouldAbort = true;
+                                }
                             }
 
+                            // Abort if bomRef exists but doesn't match
+                            if (shouldAbort) {
+                                log.warn(
+                                        "Skipping purl update for component {} because bomRef '{}' does not match old purl '{}'",
+                                        c.getName(),
+                                        bomRef,
+                                        oldPurl);
+                                return;
+                            }
+
+                            // Update the component purl
+                            c.setPurl(newPurl);
+                            log.debug("Updated component purl from {} to {}", oldPurl, newPurl);
+
+                            // Update bomRef and dependencies if bomRef was set
                             if (bomRefMatches) {
                                 if (bom != null) {
                                     // Use updateBomRef to propagate changes to dependencies
