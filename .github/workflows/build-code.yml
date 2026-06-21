@@ -27,7 +27,9 @@ jobs:
           cache: maven
 
       - name: Build with Maven
-        run: mvn --batch-mode -V -U verify -Dsurefire.useFile=false jacoco:report
+        env:
+          MAVEN_OPTS: "-Xms512m -Xmx4g -XX:+UseG1GC"
+        run: mvn --batch-mode -ntp -V verify -Dsurefire.useFile=false jacoco:report
 
       - name: Test Report
         uses: dorny/test-reporter@v2
