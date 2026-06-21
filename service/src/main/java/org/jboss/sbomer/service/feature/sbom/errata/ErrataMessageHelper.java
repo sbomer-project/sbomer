@@ -46,6 +46,7 @@ public class ErrataMessageHelper {
             .setSerializationInclusion(Include.NON_NULL)
             .disable(SerializationFeature.FAIL_ON_EMPTY_BEANS)
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .enable(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)
             .disable(SerializationFeature.FAIL_ON_UNWRAPPED_TYPE_IDENTIFIERS);
 
     public static String decode(byte[] encodedJson) {

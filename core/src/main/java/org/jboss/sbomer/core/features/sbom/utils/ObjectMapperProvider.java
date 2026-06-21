@@ -38,6 +38,7 @@ public class ObjectMapperProvider {
                     .enable(YAMLGenerator.Feature.INDENT_ARRAYS_WITH_INDICATOR))
             .setPropertyNamingStrategy(PropertyNamingStrategies.LOWER_CAMEL_CASE)
             .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .enable(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)
             .setSerializationInclusion(Include.NON_NULL);
 
     static final ObjectMapper jsonObjectMapper = new ObjectMapper().registerModule(new JavaTimeModule())
@@ -46,6 +47,7 @@ public class ObjectMapperProvider {
             .setSerializationInclusion(Include.NON_NULL)
             .disable(SerializationFeature.FAIL_ON_EMPTY_BEANS)
             .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .enable(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)
             .disable(SerializationFeature.FAIL_ON_UNWRAPPED_TYPE_IDENTIFIERS);
 
     public static ObjectMapper yaml() {
