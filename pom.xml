@@ -63,9 +63,8 @@
 
     <version.cyclonedx>9.1.0-patch</version.cyclonedx>
     <version.lombok>1.18.42</version.lombok>
-    <version.pnc>3.5.1</version.pnc>
-    <version.pnc-api>3.5.1</version.pnc-api>
-    <version.javax.ws.rs>2.1.1</version.javax.ws.rs>
+    <version.pnc>3.2.9</version.pnc>
+    <version.pnc-api>3.2.4</version.pnc-api>
     <version.quarkus-jgit>3.6.0</version.quarkus-jgit>
     <version.quarkus-kerberos>2.2.0</version.quarkus-kerberos>
     <version.sonar>4.0.0.4121</version.sonar>
