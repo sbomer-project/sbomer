@@ -46,7 +46,6 @@ import org.jboss.sbomer.core.errors.NotFoundException;
 import org.jboss.sbomer.core.errors.ServiceUnavailableException;
 import org.jboss.sbomer.core.features.sbom.config.DeliverableAnalysisConfig;
 import org.jboss.sbomer.core.features.sbom.config.OperationConfig;
-import org.jboss.sbomer.core.features.sbom.config.PncBuildConfig;
 import org.jboss.sbomer.core.features.sbom.config.SyftImageConfig;
 import org.jboss.sbomer.core.features.sbom.rest.Page;
 import org.jboss.sbomer.core.features.sbom.utils.MDCUtils;
@@ -124,16 +123,14 @@ public class GenerationsV1Beta1 {
                     schema = @Schema(
                             required = true,
                             discriminatorProperty = "type",
-                            anyOf = { PncBuildConfig.class, SyftImageConfig.class }),
+                            anyOf = { ErrataAdvisoryRequestConfig.class, ImageRequestConfig.class,
+                                    PncAnalysisRequestConfig.class, PncBuildRequestConfig.class,
+                                    PncOperationRequestConfig.class }),
                     examples = { //
                             @ExampleObject(
                                     name = "PNC build with defaults",
                                     description = "Requests manifest generation for a PNC build with identifier: ARYT3LBXDVYAC using defaults",
                                     value = "{\"type\": \"pnc-build\", \"buildId\": \"ARYT3LBXDVYAC\"}"),
-                            @ExampleObject(
-                                    name = "PNC build with one product defined and a custom generator",
-                                    description = "Requests manifest generation for a PNC build with identifier: ARYT3LBXDVYAC with custom generator parameters",
-                                    value = "{\"type\": \"pnc-build\", \"buildId\": \"ARYT3LBXDVYAC\", \"products\":[{\"generator\":{\"type\":\"maven-domino\",\"args\":\"--warn-on-missing-scm --legacy-scm-locator --hashes=false\",\"version\":\"0.0.127\"}}]}"),
                             @ExampleObject(
                                     name = "PNC operation",
                                     description = "Requests manifest generation for a PNC operation with identifier: A5WL3DFZ3AIAA",
