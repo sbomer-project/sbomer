@@ -79,6 +79,7 @@ public class MavenCycloneDxGenerateCommand extends AbstractMavenGenerateCommand 
         cmd.add("-DoutputFormat=json");
         cmd.add("-DoutputName=bom");
         cmd.add("-DschemaVersion=1.6");
+        cmd.add("-DskipNotDeployed=false");
 
         if (settingsXmlPath != null) {
             log.debug("Using provided Maven settings.xml configuration file located at '{}'", settingsXmlPath);
