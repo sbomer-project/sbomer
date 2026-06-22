@@ -26,7 +26,7 @@ sbomer:
         default-args: "--warn-on-missing-scm --legacy-scm-locator --hashes=false"
       maven-cyclonedx:
         default-version: "2.9.0"
-        default-args: "--batch-mode -DschemaVersion=1.6"
+        default-args: "--batch-mode -DschemaVersion=1.6 -DskipNotDeployed=false"
       gradle-cyclonedx:
         default-version: "1.10.0"
         default-args: "-info"
