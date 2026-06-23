@@ -20,7 +20,7 @@ version: "[VERSION]"
 
 [source,console]
 ----
---batch-mode -DschemaVersion=1.6 -DskipNotDeployed=false
+--batch-mode -DschemaVersion=1.6 -Dcyclonedx.skipNotDeployed=false
 ----
 
 *Custom arguments*
