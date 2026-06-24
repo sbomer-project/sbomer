@@ -1925,7 +1925,7 @@ public class SbomUtils {
                 }
             }
         } catch (MalformedPackageURLException e) {
-            log.warn("Can't extract version from generic purl with error: {}", e);
+            log.warn("Can't extract version from generic purl with error", e);
         }
     }
 
