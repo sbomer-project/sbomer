@@ -253,4 +253,27 @@ class MavenCommandLineParserTest {
         MavenCommandLineParser lineParser = MavenCommandLineParser.build().launder(script);
         assertEquals("mvn -DnpmArgs=\"--strict-ssl=false --batch-mode\"", lineParser.getRebuiltMvnCommandScript());
     }
+
+    @Test
+    void singleQuotedPropertyValueTest() throws IllegalArgumentException {
+        String script = "mvn deploy -DnpmArgs='--strict-ssl=false --batch-mode'";
+        MavenCommandLineParser lineParser = MavenCommandLineParser.build().launder(script);
+        assertEquals("mvn -DnpmArgs=\"--strict-ssl=false --batch-mode\"", lineParser.getRebuiltMvnCommandScript());
+    }
+
+    @Test
+    void valueContainingNewlineTest() throws IllegalArgumentException {
+        String script = "mvn deploy -Dfoo='bar\\nbaz'";
+        MavenCommandLineParser lineParser = MavenCommandLineParser.build().launder(script);
+        assertEquals("mvn -Dfoo=bar\\nbaz", lineParser.getRebuiltMvnCommandScript());
+    }
+
+    @Test
+    void lineContinuationTest() throws IllegalArgumentException {
+        String script = "mvn clean deploy -B \\\n  -DperformRelease \\\n  dependency:tree \\\n  -DskipNexusStagingDeployMojo=true \\\n  -DaltDeploymentRepository=indy-mvn::${AProxDeployUrl} \\\n  org.apache.maven.plugins:maven-deploy-plugin:3.1.4:deploy";
+        MavenCommandLineParser lineParser = MavenCommandLineParser.build().launder(script);
+        assertEquals(
+                "mvn -DperformRelease=true -DskipNexusStagingDeployMojo=true",
+                lineParser.getRebuiltMvnCommandScript());
+    }
 }
