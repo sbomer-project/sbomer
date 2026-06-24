@@ -73,6 +73,8 @@ public class MavenCommandLineParser {
 
     private static final Pattern CD_PATTERN = Pattern.compile("^cd\\s+(\\S+)");
 
+    private static final Pattern LINE_CONTINUATION_PATTERN = Pattern.compile("\\\\\\R");
+
     @ToString.Exclude
     private final CommandLineParser parser;
 
@@ -177,7 +179,8 @@ public class MavenCommandLineParser {
         String extractedMavenCommand = "";
         String cd = null;
         String lastCd = null;
-        String[] segments = SEPARATOR_PATTERN.split(fullScript);
+        String joinedScript = LINE_CONTINUATION_PATTERN.matcher(fullScript).replaceAll(" ");
+        String[] segments = SEPARATOR_PATTERN.split(joinedScript);
 
         for (String segment : segments) {
             String trimmedSegment = segment.trim();
