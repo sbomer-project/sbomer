@@ -35,7 +35,7 @@ public class MavenCommandOptions {
     public static final String PROFILES_OPTION = "P";
     public static final String SYSTEM_PROPERTIES_OPTION = "D";
     public static final String PROJECTS_OPTION = "pl";
-    public static final String ALTERNATIVE_POM = "f";
+    public static final String ALTERNATE_POM = "f";
 
     public static final List<String> NO_ARGS_OPTIONS = List.of(
             ALSO_MAKE_OPTION,
@@ -305,14 +305,14 @@ public class MavenCommandOptions {
     }
 
     /**
-     * Add maven command options to parse pom alternative locations
+     * Add maven command options to parse pom alternate locations
      *
-     * @param options the options to add the alternative pom options to
-     * @return the options with the alternative pom options added
+     * @param options the options to add the alternate pom options to
+     * @return the options with the alternate pom options added
      */
-    public static Options addAlternativePomOption(Options options) {
+    public static Options addAlternatePomOption(Options options) {
         options.addOption(
-                Option.builder(ALTERNATIVE_POM)
+                Option.builder(ALTERNATE_POM)
                         .longOpt("file")
                         .hasArg()
                         .desc("Force the use of an alternate POM file (or directory with pom.xml)")

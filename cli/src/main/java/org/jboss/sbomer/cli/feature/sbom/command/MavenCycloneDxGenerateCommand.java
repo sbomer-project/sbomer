@@ -17,8 +17,6 @@
  */
 package org.jboss.sbomer.cli.feature.sbom.command;
 
-import static org.jboss.sbomer.core.features.sbom.utils.commandline.maven.MavenCommandLineParser.SPLIT_BY_SPACE_HONORING_SINGLE_AND_DOUBLE_QUOTES;
-
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -26,6 +24,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import org.codehaus.plexus.util.cli.CommandLineUtils;
 import org.jboss.sbomer.cli.feature.sbom.generate.ProcessRunner;
 import org.jboss.sbomer.core.errors.ApplicationException;
 import org.jboss.sbomer.core.features.sbom.enums.GeneratorType;
@@ -72,24 +71,27 @@ public class MavenCycloneDxGenerateCommand extends AbstractMavenGenerateCommand 
     }
 
     private String[] command(String buildCmdOptions) {
+        try {
+            String[] args = CommandLineUtils.translateCommandline(buildCmdOptions);
+            List<String> cmd = new ArrayList<>(Arrays.asList(args));
+            cmd.add(String.format("org.cyclonedx:cyclonedx-maven-plugin:%s:makeAggregateBom", toolVersion()));
+            cmd.add("-DoutputFormat=json");
+            cmd.add("-DoutputName=bom");
+            cmd.add("-DschemaVersion=1.6");
+            cmd.add("-Dcyclonedx.skipNotDeployed=false");
 
-        List<String> cmd = new ArrayList<>(
-                List.of(buildCmdOptions.split(SPLIT_BY_SPACE_HONORING_SINGLE_AND_DOUBLE_QUOTES)));
-        cmd.add(String.format("org.cyclonedx:cyclonedx-maven-plugin:%s:makeAggregateBom", toolVersion()));
-        cmd.add("-DoutputFormat=json");
-        cmd.add("-DoutputName=bom");
-        cmd.add("-DschemaVersion=1.6");
-        cmd.add("-Dcyclonedx.skipNotDeployed=false");
+            if (settingsXmlPath != null) {
+                log.debug("Using provided Maven settings.xml configuration file located at '{}'", settingsXmlPath);
+                cmd.add("--settings");
+                cmd.add(settingsXmlPath.toString());
+            }
 
-        if (settingsXmlPath != null) {
-            log.debug("Using provided Maven settings.xml configuration file located at '{}'", settingsXmlPath);
-            cmd.add("--settings");
-            cmd.add(settingsXmlPath.toString());
+            cmd.addAll(Arrays.asList(generatorArgs().split(" ")));
+
+            return cmd.toArray(new String[0]);
+        } catch (Exception e) {
+            throw new ApplicationException("Unable to translate commandline '{}'", buildCmdOptions, e);
         }
-
-        cmd.addAll(Arrays.asList(generatorArgs().split(" ")));
-
-        return cmd.toArray(new String[0]);
     }
 
     @Override
