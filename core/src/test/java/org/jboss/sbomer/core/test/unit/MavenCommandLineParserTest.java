@@ -20,6 +20,7 @@ package org.jboss.sbomer.core.test.unit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -98,7 +99,7 @@ class MavenCommandLineParserTest {
                 lineParser.getRebuiltMvnCommandScript()
                         .contains("-Dorg.apache.maven.user-settings=/usr/share/maven/conf/settings.xml"));
         assertFalse(lineParser.getRebuiltMvnCommandScript().contains("-DnpmRegistryURL=\"$npmRegistryURL\""));
-        assertTrue(lineParser.getRebuiltMvnCommandScript().contains("-DnpmArgs=\"--strict-ssl=false\""));
+        assertTrue(lineParser.getRebuiltMvnCommandScript().contains("-DnpmArgs=--strict-ssl=false"));
     }
 
     @Test
@@ -184,7 +185,7 @@ class MavenCommandLineParserTest {
         assertTrue(lineParser.getRebuiltMvnCommandScript().contains("-DversionIncrementalSuffix=redhat"));
 
         assertEquals(
-                "mvn -C  -Dmaven.test.failure.ignore=true -DversionIncrementalSuffix=redhat -DrepoReportingRemoval=true",
+                "mvn -C -Dmaven.test.failure.ignore=true -DversionIncrementalSuffix=redhat -DrepoReportingRemoval=true",
                 lineParser.getRebuiltMvnCommandScript());
     }
 
@@ -206,14 +207,50 @@ class MavenCommandLineParserTest {
     }
 
     @Test
-    void tackleAlternativePomFileTest() throws IllegalArgumentException {
+    void tackleAlternatePomFileTest() throws IllegalArgumentException {
         String script = "mvn deploy -f productized/logic/pom.xml";
 
         MavenCommandLineParser lineParser = MavenCommandLineParser.build().launder(script);
         assertEquals(0, lineParser.getProfiles().size());
         assertEquals(0, lineParser.getProperties().size());
         assertEquals(0, lineParser.getProjects().size());
-        assertNotNull(lineParser.getAlternativePomFile());
-        assertEquals("productized/logic/pom.xml", lineParser.getAlternativePomFile());
+        assertNotNull(lineParser.getAlternatePomFile());
+        assertEquals("productized/logic/pom.xml", lineParser.getAlternatePomFile());
+    }
+
+    @Test
+    void indyMvnTest() throws IllegalArgumentException {
+        String script = "mvn -f jaxb-ri/pom.xml -DaltDeploymentRepository=indy-mvn::${AProxDeployUrl} -DskipTests install deploy:deploy -DskipNexusStagingDeployMojo=true";
+        MavenCommandLineParser lineParser = MavenCommandLineParser.build().launder(script);
+        assertEquals("jaxb-ri/pom.xml", lineParser.getAlternatePomFile());
+        assertNull(lineParser.getDir());
+        assertEquals(
+                "mvn -DskipTests=true -DskipNexusStagingDeployMojo=true -f jaxb-ri/pom.xml",
+                lineParser.getRebuiltMvnCommandScript());
+    }
+
+    @Test
+    void cdWithoutAlternatePomFileTest() throws IllegalArgumentException {
+        String script = "cd jaxb-ri && mvn deploy -DskipTests=true";
+        MavenCommandLineParser lineParser = MavenCommandLineParser.build().launder(script);
+        assertEquals("jaxb-ri", lineParser.getAlternatePomFile());
+        assertEquals("jaxb-ri", lineParser.getDir());
+        assertEquals("mvn -DskipTests=true -f jaxb-ri", lineParser.getRebuiltMvnCommandScript());
+    }
+
+    @Test
+    void cdTestWithAlternatePomFileTest() throws IllegalArgumentException {
+        String script = "cd jaxb-ri && mvn -f should-override deploy -DskipTests=true";
+        MavenCommandLineParser lineParser = MavenCommandLineParser.build().launder(script);
+        assertEquals("should-override", lineParser.getAlternatePomFile());
+        assertEquals("jaxb-ri", lineParser.getDir());
+        assertEquals("mvn -DskipTests=true -f should-override", lineParser.getRebuiltMvnCommandScript());
+    }
+
+    @Test
+    void quotedPropertyValueTest() throws IllegalArgumentException {
+        String script = "mvn deploy -DnpmArgs=\"--strict-ssl=false --batch-mode\"";
+        MavenCommandLineParser lineParser = MavenCommandLineParser.build().launder(script);
+        assertEquals("mvn -DnpmArgs=\"--strict-ssl=false --batch-mode\"", lineParser.getRebuiltMvnCommandScript());
     }
 }

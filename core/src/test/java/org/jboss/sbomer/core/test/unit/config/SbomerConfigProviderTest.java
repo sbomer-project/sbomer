@@ -112,7 +112,9 @@ class SbomerConfigProviderTest {
             assertInstanceOf(DefaultProcessorConfig.class, product.getProcessors().get(0));
             assertInstanceOf(RedHatProductProcessorConfig.class, product.getProcessors().get(1));
             assertEquals(GeneratorType.MAVEN_CYCLONEDX, product.getGenerator().getType());
-            assertEquals("--batch-mode -DschemaVersion=1.6 -Dcyclonedx.skipNotDeployed=false", product.getGenerator().getArgs());
+            assertEquals(
+                    "--batch-mode -DschemaVersion=1.6 -Dcyclonedx.skipNotDeployed=false",
+                    product.getGenerator().getArgs());
             assertEquals("2.9.0", product.getGenerator().getVersion());
         }
 
@@ -129,7 +131,9 @@ class SbomerConfigProviderTest {
             assertInstanceOf(DefaultProcessorConfig.class, product.getProcessors().get(0));
             assertInstanceOf(RedHatProductProcessorConfig.class, product.getProcessors().get(1));
             assertEquals(GeneratorType.MAVEN_CYCLONEDX, product.getGenerator().getType());
-            assertEquals("--batch-mode -DschemaVersion=1.6 -Dcyclonedx.skipNotDeployed=false", product.getGenerator().getArgs());
+            assertEquals(
+                    "--batch-mode -DschemaVersion=1.6 -Dcyclonedx.skipNotDeployed=false",
+                    product.getGenerator().getArgs());
             assertEquals("1.1.1", product.getGenerator().getVersion());
         }
 
