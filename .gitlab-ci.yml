@@ -34,7 +34,7 @@ default:
 
 build:
   image:
-    name: registry.access.redhat.com/ubi9@sha256:fd3612ebe7968002122fb8c41df2cf9bd3f9916c573f7248113cdec1d6f4c245
+    name: registry.access.redhat.com/ubi9@sha256:8bf0e8f20737e9c8a68c8a498299e9504ab397b1b1f2837acb2fef12ec698f0e
     entrypoint: [""]
   stage: build
   cache:

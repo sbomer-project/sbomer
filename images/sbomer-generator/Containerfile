@@ -1,5 +1,5 @@
 # https://catalog.redhat.com/software/containers/ubi9/618326f8c0d15aff4912fe0b
-FROM registry.access.redhat.com/ubi9@sha256:fd3612ebe7968002122fb8c41df2cf9bd3f9916c573f7248113cdec1d6f4c245
+FROM registry.access.redhat.com/ubi9@sha256:8bf0e8f20737e9c8a68c8a498299e9504ab397b1b1f2837acb2fef12ec698f0e
 
 RUN dnf -y --noplugins --setopt=install_weak_deps=0 --setopt=tsflags=nodocs upgrade
 RUN INSTALL_PKGS="jq wget unzip zip git skopeo glibc-langpack-en" && \
