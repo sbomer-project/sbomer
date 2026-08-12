@@ -128,6 +128,8 @@ public class SbomUtils {
 
     public static final String EVIDENCE_LICENSE_ACKNOWLEDGEMENT = "declared";
 
+    private static final String REPOSITORY_URL_QUALIFIER = "repository_url";
+
     private static class HashAlgorithmMapping<T> {
         final Hash.Algorithm algorithm;
         final Function<T, String> getter; // Function takes T and returns String
@@ -521,8 +523,7 @@ public class SbomUtils {
         hashes.add(new Hash(Algorithm.SHA_256, artifact.getSha256()));
         component.setHashes(hashes);
 
-        if ((component.getVersion() != null && RhVersionPattern.isRhVersion(component.getVersion()))
-                || (component.getPurl() != null && RhVersionPattern.isRhPurl(component.getPurl()))) {
+        if (RhVersionPattern.isRhVersion(component.getVersion()) || RhVersionPattern.isRhPurl(component.getPurl())) {
             SbomUtils.setPublisher(component);
             SbomUtils.setSupplier(component);
             SbomUtils.addMrrc(component);
@@ -1016,6 +1017,10 @@ public class SbomUtils {
     }
 
     public static void addMrrc(Component c) {
+        if (!isRedHatMavenComponent(c)) {
+            return;
+        }
+
         List<ExternalReference> externalRefs = new ArrayList<>();
         if (c.getExternalReferences() != null) {
             externalRefs.addAll(c.getExternalReferences());
@@ -1464,26 +1469,13 @@ public class SbomUtils {
 
     /**
      * Creates a new purl with the same name, namespace, subpath, type, version and qualifiers and add the specified
-     * qualifier. If "redHatComponentsOnly" is true, add the qualifiers only if the component has a Red Hat version.
-     * Finally, rebuild the purl to make sure it is valid and qualifiers are properly sorted.
+     * qualifier. Finally, rebuild the purl to make sure it is valid and qualifiers are properly sorted.
      *
      * @param component the input component which has the purl to modify
      * @param qualifiers the Map with the qualifiers key-value
-     * @param redHatComponentsOnly boolean, true if the qualifiers should be added only to components with the Red Hat
-     *        version
      * @return The new validated purl as string.
      */
-    public static String addQualifiersToPurlOfComponent(
-            Component component,
-            Map<String, String> qualifiers,
-            boolean redHatComponentsOnly) {
-
-        // In case this is not a RH artifact, do not update the purl
-        if (redHatComponentsOnly && !RhVersionPattern.isRhVersion(component.getVersion())
-                && !RhVersionPattern.isRhPurl(component.getPurl())) {
-            return component.getPurl();
-        }
-
+    public static String addQualifiersToPurlOfComponent(Component component, Map<String, String> qualifiers) {
         try {
             PackageURL purl = new PackageURL(component.getPurl());
             PackageURLBuilder builder = purl.toBuilder();
@@ -1492,6 +1484,48 @@ public class SbomUtils {
         } catch (MalformedPackageURLException | IllegalArgumentException e) {
             log.warn("Error while adding new qualifiers to component with purl {}", component.getPurl(), e);
             return component.getPurl();
+        }
+    }
+
+    /**
+     * Adds the MRRC {@code repository_url} qualifier to the purl of the provided component if the purl has a Maven type
+     * and a Red Hat version.
+     *
+     * @param component the input component which has the purl to modify
+     * @return The new validated purl as string if a Maven Red Hat purl, or the original otherwise
+     */
+    public static String addMrrcQualifierToPurlOfComponent(Component component) {
+        if (!isRedHatMavenComponent(component)) {
+            return addQualifiersToPurlOfComponent(component, Map.of());
+        }
+
+        return addQualifiersToPurlOfComponent(component, Map.of(REPOSITORY_URL_QUALIFIER, MRRC_URL));
+    }
+
+    /**
+     * Returns whether the provided component is a Red Hat build of a Maven artifact based on its purl type and version.
+     *
+     * @param component the component
+     * @return {@code true} if the purl is a valid Maven purl and its version is a Red Hat one
+     */
+    private static boolean isRedHatMavenComponent(Component component) {
+        String purl = component.getPurl();
+
+        if (StringUtils.isBlank(purl)) {
+            return false;
+        }
+
+        try {
+            PackageURL packageURL = new PackageURL(purl);
+
+            if (!PackageURL.StandardTypes.MAVEN.equals(packageURL.getType())) {
+                return false;
+            }
+
+            return RhVersionPattern.isRhVersion(packageURL.getVersion());
+        } catch (MalformedPackageURLException | IllegalArgumentException e) {
+            log.warn("Purl {} could not be parsed, it is not a Maven purl", purl, e);
+            return false;
         }
     }
 

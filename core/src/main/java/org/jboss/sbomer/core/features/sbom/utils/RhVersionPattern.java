@@ -19,7 +19,7 @@ package org.jboss.sbomer.core.features.sbom.utils;
 
 import java.util.regex.Pattern;
 
-import io.quarkus.util.GlobUtil;
+import org.apache.commons.lang3.StringUtils;
 
 public class RhVersionPattern {
 
@@ -27,24 +27,16 @@ public class RhVersionPattern {
         // This is a utility class
     }
 
-    private static final String RH_VERSION_SUFFIX = "?redhat-*";
-    private static final Pattern RH_VERSION_SUFFIX_PATTERN = Pattern
-            .compile(GlobUtil.toRegexPattern(RH_VERSION_SUFFIX));
-    private static final String RH_VERSION_EXPR = "*redhat-*";
+    private static final String RH_VERSION_EXPR = "[.-]redhat-\\d+$";
     private static final String RH_NPM_PURL_VERSION = ".*(?:%40redhat|@redhat).*";
-    private static final Pattern RH_VERSION_PATTERN = Pattern.compile(GlobUtil.toRegexPattern(RH_VERSION_EXPR));
+    private static final Pattern RH_VERSION_PATTERN = Pattern.compile(RH_VERSION_EXPR);
     private static final Pattern RH_NPM_PURL_PATTERN = Pattern.compile(RH_NPM_PURL_VERSION);
 
     public static boolean isRhVersion(String version) {
-        return RH_VERSION_PATTERN.matcher(version).matches();
+        return StringUtils.isNotBlank(version) && RH_VERSION_PATTERN.matcher(version).find();
     }
 
     public static boolean isRhPurl(String purl) {
-        return RH_NPM_PURL_PATTERN.matcher(purl).matches();
+        return StringUtils.isNotBlank(purl) && RH_NPM_PURL_PATTERN.matcher(purl).matches();
     }
-
-    public static String ensureNoRhSuffix(String version) {
-        return RH_VERSION_SUFFIX_PATTERN.matcher(version).replaceFirst("");
-    }
-
 }

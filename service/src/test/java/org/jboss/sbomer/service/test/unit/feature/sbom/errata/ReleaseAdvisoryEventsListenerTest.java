@@ -526,10 +526,7 @@ class ReleaseAdvisoryEventsListenerTest {
 
             assertEquals(1, sboms.size());
             Bom manifestBom = SbomUtils.fromJsonNode(sboms.get(0).getSbom());
-            String expectedPurl = SbomUtils.addQualifiersToPurlOfComponent(
-                    manifestBom.getComponents().get(0),
-                    Map.of("repository_url", Constants.MRRC_URL),
-                    true);
+            String expectedPurl = SbomUtils.addMrrcQualifierToPurlOfComponent(manifestBom.getComponents().get(0));
 
             validateComponent(
                     bom.getComponents().get(0),
@@ -628,10 +625,8 @@ class ReleaseAdvisoryEventsListenerTest {
                     String.valueOf(erratum.getDetails().get().getId()));
 
             Bom buildManifestBom = SbomUtils.fromJsonNode(sboms.get(0).getSbom());
-            String buildExpectedPurl = SbomUtils.addQualifiersToPurlOfComponent(
-                    buildManifestBom.getComponents().get(0),
-                    Map.of("repository_url", Constants.MRRC_URL),
-                    true);
+            String buildExpectedPurl = SbomUtils
+                    .addMrrcQualifierToPurlOfComponent(buildManifestBom.getComponents().get(0));
             validateComponent(
                     bom.getComponents().get(0),
                     Component.Type.LIBRARY,
@@ -644,10 +639,8 @@ class ReleaseAdvisoryEventsListenerTest {
                     Field.PURL);
 
             Bom operationManifestBom = SbomUtils.fromJsonNode(sboms.get(1).getSbom());
-            String operationExpectedPurl = SbomUtils.addQualifiersToPurlOfComponent(
-                    operationManifestBom.getMetadata().getComponent(),
-                    Map.of("repository_url", Constants.MRRC_URL),
-                    false);
+            String operationExpectedPurl = SbomUtils
+                    .addMrrcQualifierToPurlOfComponent(operationManifestBom.getMetadata().getComponent());
 
             GenericPurlWrapperUtil gp = null;
             try {
@@ -707,14 +700,15 @@ class ReleaseAdvisoryEventsListenerTest {
                     metadataNode.get(ReleaseStandardAdvisoryEventsListener.PRODUCT_VERSION).asText());
 
             ArrayNode arrayNode = (ArrayNode) metadataNode.get(ReleaseStandardAdvisoryEventsListener.PURL_LIST);
+            int size = arrayNode.size();
             List<String> allPurls = List.of(
                     "pkg:generic/jboss-unified-push-1.0.0.Beta1-maven-repository.zip?checksum=sha256%3A1c2a89f755d5fdddef08c9f6f3b89e1e15cfa6d316055327bfe3f806acdbfca1",
-                    "pkg:generic/jboss-unified-push-1.0.0.Beta1-maven-repository.zip?checksum=sha256%3A1c2a89f755d5fdddef08c9f6f3b89e1e15cfa6d316055327bfe3f806acdbfca1&repository_url=https%3A%2F%2Fmaven.repository.redhat.com%2Fga%2F",
-                    "pkg:generic/jboss-unified-push-eta1-maven-repository.zip@1.0.0.B?checksum=sha256%3A1c2a89f755d5fdddef08c9f6f3b89e1e15cfa6d316055327bfe3f806acdbfca1&repository_url=https%3A%2F%2Fmaven.repository.redhat.com%2Fga%2F",
+                    "pkg:generic/jboss-unified-push-eta1-maven-repository.zip@1.0.0.B?checksum=sha256%3A1c2a89f755d5fdddef08c9f6f3b89e1e15cfa6d316055327bfe3f806acdbfca1",
                     "pkg:maven/com.redhat.quarkus.platform/quarkus-bom@3.2.11.Final-redhat-00001?repository_url=https%3A%2F%2Fmaven.repository.redhat.com%2Fga%2F&type=pom",
                     "pkg:maven/com.redhat.quarkus.platform/quarkus-bom@3.2.11.Final-redhat-00001?type=pom");
+            assertEquals(allPurls.size(), size);
 
-            for (int i = 0; i < arrayNode.size(); i++) {
+            for (int i = 0; i < size; i++) {
                 JsonNode node = arrayNode.get(i);
                 assertEquals(node.asText(), allPurls.get(i));
             }

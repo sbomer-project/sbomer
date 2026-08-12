@@ -250,10 +250,10 @@ public class SbtCycloneDxGenerateCommand extends AbstractSbtGenerateCommand {
     private void addMissingQualifiersAndHashes(Bom rootBom) {
         // The SBT plugin does not put the jar qualifier in purls, let's add it
         String newPurl = SbomUtils
-                .addQualifiersToPurlOfComponent(rootBom.getMetadata().getComponent(), Map.of("type", "jar"), false);
+                .addQualifiersToPurlOfComponent(rootBom.getMetadata().getComponent(), Map.of("type", "jar"));
         rootBom.getMetadata().getComponent().setPurl(newPurl);
         Stream.ofNullable(rootBom.getComponents()).flatMap(Collection::stream).forEach(c -> {
-            String updatedPurl = SbomUtils.addQualifiersToPurlOfComponent(c, Map.of("type", "jar"), false);
+            String updatedPurl = SbomUtils.addQualifiersToPurlOfComponent(c, Map.of("type", "jar"));
             c.setPurl(updatedPurl);
         });
 
