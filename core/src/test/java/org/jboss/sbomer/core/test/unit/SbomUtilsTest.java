@@ -39,6 +39,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.cyclonedx.Version;
 import org.cyclonedx.generators.json.BomJsonGenerator;
@@ -1144,5 +1145,34 @@ class SbomUtilsTest {
         assertFalse(SbomUtils.isRhNpmPurl(null));
         assertFalse(SbomUtils.isRhNpmPurl(""));
         assertFalse(SbomUtils.isRhNpmPurl(" "));
+    }
+
+    @Test
+    void testSetEvidenceIdentitiesKeepsLicenseEvidence() {
+        License license = new License();
+        license.setId("Apache-2.0");
+        LicenseChoice licenseChoice = new LicenseChoice();
+        licenseChoice.setLicenses(List.of(license));
+        Evidence evidence = new Evidence();
+        evidence.setLicenses(licenseChoice);
+        String purl = "pkg:maven/org.apache.logging.log4j/log4j@2.19.0.redhat-00001?type=pom";
+        Component component = createComponent(
+                "org.apache.logging.log4j",
+                "log4j",
+                "2.19.0.redhat-00001",
+                null,
+                purl,
+                Type.LIBRARY);
+        component.setEvidence(evidence);
+        SbomUtils.setEvidenceIdentities(component, Set.of(purl), Field.PURL);
+        Evidence componentEvidence = component.getEvidence();
+        List<Identity> identities = componentEvidence.getIdentities();
+        assertEquals(1, identities.size());
+        assertEquals(purl, identities.get(0).getConcludedValue());
+        LicenseChoice componentEvidenceLicenses = componentEvidence.getLicenses();
+        assertNotNull(componentEvidenceLicenses);
+        List<License> licenses = componentEvidenceLicenses.getLicenses();
+        assertEquals(1, licenses.size());
+        assertEquals("Apache-2.0", licenses.get(0).getId());
     }
 }
