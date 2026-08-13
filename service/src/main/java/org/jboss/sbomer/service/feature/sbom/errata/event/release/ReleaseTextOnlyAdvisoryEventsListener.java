@@ -251,10 +251,7 @@ public class ReleaseTextOnlyAdvisoryEventsListener extends AbstractEventsListene
         } else {
             manifestMainComponent = manifestBom.getComponents().get(0);
         }
-        String evidencePurl = SbomUtils.addQualifiersToPurlOfComponent(
-                manifestMainComponent,
-                Map.of("repository_url", Constants.MRRC_URL),
-                !SbomUtils.hasProperty(manifestMainComponent, Constants.SBOM_RED_HAT_DELIVERABLE_URL));
+        String evidencePurl = SbomUtils.addMrrcQualifierToPurlOfComponent(manifestMainComponent);
 
         // Finally, create the root component for this build (NVR) from the manifest
         Component sbomRootComponent = SbomUtils.createComponent(manifestMainComponent);
@@ -404,11 +401,13 @@ public class ReleaseTextOnlyAdvisoryEventsListener extends AbstractEventsListene
     }
 
     protected void adjustComponent(Component component) {
+        String evidencePurl = SbomUtils.addMrrcQualifierToPurlOfComponent(component);
 
-        String evidencePurl = SbomUtils.addQualifiersToPurlOfComponent(
-                component,
-                Map.of("repository_url", Constants.MRRC_URL),
-                SbomUtils.hasProperty(component, Constants.SBOM_RED_HAT_DELIVERABLE_URL));
+        if (evidencePurl == null) {
+            log.debug("Not calculating evidence since purl of component '{}' is blank", component.getBomRef());
+            return;
+        }
+
         log.debug("Calculated evidence purl: {}", evidencePurl);
         component.setPurl(evidencePurl);
         SbomUtils.setEvidenceIdentities(component, Set.of(evidencePurl), Field.PURL);

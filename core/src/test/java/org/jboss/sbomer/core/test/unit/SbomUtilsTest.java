@@ -17,6 +17,7 @@
  */
 package org.jboss.sbomer.core.test.unit;
 
+import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.addMrrcQualifierToPurlOfComponent;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.createComponent;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.getHashesFromAnalyzedDistribution;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -1062,5 +1063,65 @@ class SbomUtilsTest {
         // Both purl and bomRef should be updated
         assertEquals(newPurl, c.getPurl());
         assertEquals(newPurl, c.getBomRef());
+    }
+
+    @Test
+    void testAddMrrc() throws MalformedPackageURLException {
+        String purl = "pkg:maven/org.apache.logging.log4j/log4j@2.19.0.redhat-00001?type=pom";
+        Component component = createComponent(
+                "org.apache.logging.log4j",
+                "log4j",
+                "2.19.0.redhat-00001",
+                null,
+                purl,
+                Type.LIBRARY);
+        assertEquals(purl, component.getPurl());
+        String qualifier = "repository_url=https%3A%2F%2Fmaven.repository.redhat.com%2Fga%2F";
+        assertEquals(new PackageURL(purl + "&" + qualifier).toString(), addMrrcQualifierToPurlOfComponent(component));
+        SbomUtils.addMrrc(component);
+        List<ExternalReference> refs = component.getExternalReferences();
+        assertEquals(1, refs.size());
+        assertEquals(ExternalReference.Type.DISTRIBUTION, refs.get(0).getType());
+        assertEquals(Constants.MRRC_URL, refs.get(0).getUrl());
+        assertNotNull(refs);
+    }
+
+    @Test
+    void testDoesNotAddMrrcToUpstreamVersion() {
+        String purl = "pkg:maven/org.apache.logging.log4j/log4j@2.19.0?type=pom";
+        Component component = createComponent("org.apache.logging.log4j", "log4j", "2.19.0", null, purl, Type.LIBRARY);
+        assertEquals(purl, component.getPurl());
+        assertEquals(purl, SbomUtils.addMrrcQualifierToPurlOfComponent(component));
+        SbomUtils.addMrrc(component);
+        assertNull(component.getExternalReferences());
+    }
+
+    @Test
+    void testDoesNotAddMrrcToGenericType() {
+        String purl = "pkg:generic/my-broker-7.11.5.CR3-bin.zip@7.11.5.redhat-00001";
+        Component component = createComponent(
+                null,
+                "my-broker-7.11.5.CR3-bin.zip",
+                "7.11.5.redhat-00001",
+                null,
+                purl,
+                Type.FILE);
+        assertEquals(purl, component.getPurl());
+        assertEquals(purl, SbomUtils.addMrrcQualifierToPurlOfComponent(component));
+        SbomUtils.addMrrc(component);
+        assertNull(component.getExternalReferences());
+    }
+
+    @Test
+    void testCanonicalizesPurlWithoutAddingMrrc() throws MalformedPackageURLException {
+        String purl = "pkg:generic/my-broker-7.11.5.CR3-bin.zip@7.11.5.redhat-00001?type=zip&classifier=bin";
+        Component component = createComponent(
+                null,
+                "my-broker-7.11.5.CR3-bin.zip",
+                "7.11.5.redhat-00001",
+                null,
+                purl,
+                Type.FILE);
+        assertEquals(new PackageURL(purl).toString(), SbomUtils.addMrrcQualifierToPurlOfComponent(component));
     }
 }
