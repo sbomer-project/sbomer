@@ -166,8 +166,7 @@ public class DefaultProcessor implements Processor {
                     artifact.getId());
 
             // In case this is a RH artifact, add more properties.
-            if (RhVersionPattern.isRhVersion(component.getVersion())
-                    || RhVersionPattern.isRhPurl(component.getPurl())) {
+            if (RhVersionPattern.isRhVersion(component.getVersion()) || SbomUtils.isRhNpmPurl(component.getPurl())) {
                 setPublisher(component);
                 setSupplier(component);
                 addMrrc(component);

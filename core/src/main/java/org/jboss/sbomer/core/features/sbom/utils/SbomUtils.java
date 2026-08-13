@@ -65,6 +65,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.commonjava.atlas.maven.ident.ref.SimpleArtifactRef;
 import org.commonjava.atlas.npm.ident.ref.NpmPackageRef;
 import org.cyclonedx.Version;
@@ -129,6 +130,8 @@ public class SbomUtils {
     public static final String EVIDENCE_LICENSE_ACKNOWLEDGEMENT = "declared";
 
     private static final String REPOSITORY_URL_QUALIFIER = "repository_url";
+
+    private static final String PURL_REDHAT_NPM_NAMESPACE_PREFIX = "@redhat";
 
     private static class HashAlgorithmMapping<T> {
         final Hash.Algorithm algorithm;
@@ -523,7 +526,7 @@ public class SbomUtils {
         hashes.add(new Hash(Algorithm.SHA_256, artifact.getSha256()));
         component.setHashes(hashes);
 
-        if (RhVersionPattern.isRhVersion(component.getVersion()) || RhVersionPattern.isRhPurl(component.getPurl())) {
+        if (RhVersionPattern.isRhVersion(component.getVersion()) || isRhNpmPurl(component.getPurl())) {
             SbomUtils.setPublisher(component);
             SbomUtils.setSupplier(component);
             SbomUtils.addMrrc(component);
@@ -1484,6 +1487,21 @@ public class SbomUtils {
         } catch (MalformedPackageURLException | IllegalArgumentException e) {
             log.warn("Error while adding new qualifiers to component with purl {}", component.getPurl(), e);
             return component.getPurl();
+        }
+    }
+
+    public static boolean isRhNpmPurl(String purl) {
+        if (StringUtils.isBlank(purl)) {
+            return false;
+        }
+
+        try {
+            PackageURL packageURL = new PackageURL(purl);
+            return PackageURL.StandardTypes.NPM.equals(packageURL.getType())
+                    && Strings.CS.startsWith(packageURL.getNamespace(), PURL_REDHAT_NPM_NAMESPACE_PREFIX);
+        } catch (MalformedPackageURLException | IllegalArgumentException e) {
+            log.warn("Purl '{}' could not be parsed", purl, e);
+            return false;
         }
     }
 
