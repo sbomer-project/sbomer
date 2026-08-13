@@ -16,7 +16,7 @@ jobs:
           repo-ref: ${{ github.event.pull_request.head.ref }}
           repo-full-name: ${{ github.event.pull_request.head.repo.full_name }}
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         if: github.event_name != 'pull_request_target'
 
       - name: Set up Node

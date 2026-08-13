@@ -16,7 +16,7 @@ jobs:
           repo-ref: ${{ github.event.pull_request.head.ref }}
           repo-full-name: ${{ github.event.pull_request.head.repo.full_name }}
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         if: github.event_name != 'pull_request_target'
 
       - name: Set up JDK 17
@@ -30,7 +30,7 @@ jobs:
         run: mvn --batch-mode -V -U verify -Dsurefire.useFile=false jacoco:report
 
       - name: Test Report
-        uses: dorny/test-reporter@v2
+        uses: dorny/test-reporter@v3
         if: success() || failure()
         with:
           name: Test Results

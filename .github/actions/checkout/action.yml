@@ -10,10 +10,10 @@ inputs:
     description: "The GitHub triggering actor"
   repo-ref:
     required: true
-    description: "Repository full name"
+    description: "Repository ref to check out"
   repo-full-name:
     required: true
-    description: "Repository ref to check out"
+    description: "Repository full name"
 
 runs:
   using: "composite"
@@ -35,7 +35,8 @@ runs:
         echo "Current permission level is ${{ steps.checkAccess.outputs.user-permission }}"
         exit 1
 
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
       with:
         ref: ${{ inputs.repo-ref }}
         repository: ${{ inputs.repo-full-name }}
+        allow-unsafe-pr-checkout: true
