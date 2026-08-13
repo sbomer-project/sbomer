@@ -667,16 +667,16 @@ class SbomUtilsTest {
         Bom bom = new Bom();
         bom.addComponent(c);
         BomJsonGenerator generator = new BomJsonGenerator(bom, Version.VERSION_16);
-        assertEquals(expectedPurl, c.getEvidence().getIdentities().get(1).getConcludedValue());
+        assertEquals(1, c.getEvidence().getIdentities().size());
+        assertEquals(expectedPurl, c.getEvidence().getIdentities().get(0).getConcludedValue());
     }
 
     private Identity purlToIdent(String purl) {
         try {
             return purlToIdent(new PackageURL(purl));
         } catch (MalformedPackageURLException e) {
-            fail(e);
+            return fail(e);
         }
-        return null;
     }
 
     private Identity purlToIdent(PackageURL purl) {
@@ -710,9 +710,10 @@ class SbomUtilsTest {
             e.setIdentities(List.of(purlToIdent(purl)));
             c.setEvidence(e);
             SbomUtils.setPurlVersionFromGeneric(c);
+            assertEquals(1, c.getEvidence().getIdentities().size());
             assertEquals(
                     "pkg:generic/jboss-eap-runtime-maven-repository.zip@7.4",
-                    c.getEvidence().getIdentities().get(1).getConcludedValue());
+                    c.getEvidence().getIdentities().get(0).getConcludedValue());
         } catch (NullPointerException e) {
             fail(e);
         }
@@ -797,6 +798,10 @@ class SbomUtilsTest {
 
         // Evidence identity should be updated with the longer purl (component purl in this case)
         assertEquals(2, c.getEvidence().getIdentities().size(), "Should have two identities");
+        assertEquals(
+                evidencePurl,
+                c.getEvidence().getIdentities().get(0).getConcludedValue(),
+                "Evidence identity with a different purl should be left alone");
         assertEquals(
                 expectedEvidencePurl,
                 c.getEvidence().getIdentities().get(1).getConcludedValue(),
