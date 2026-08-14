@@ -1994,7 +1994,7 @@ public class SbomUtils {
         if (replace) {
             List<Identity> mappedList = currentIdentities.stream().map(identity -> {
                 boolean isMatch = false;
-                if ("purl".equals(identity.getField()) && identity.getConcludedValue() != null) {
+                if (Field.PURL.equals(identity.getField()) && identity.getConcludedValue() != null) {
                     try {
                         isMatch = new PackageURL(identity.getConcludedValue()).equals(originalPurl);
                     } catch (MalformedPackageURLException e) {

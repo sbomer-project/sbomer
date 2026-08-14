@@ -657,7 +657,7 @@ class ReleaseAdvisoryEventsListenerTest {
                     "sha256:1c2a89f755d5fdddef08c9f6f3b89e1e15cfa6d316055327bfe3f806acdbfca1",
                     "pkg:generic/jboss-unified-push-1.0.0.Beta1-maven-repository.zip?checksum=sha256%3A1c2a89f755d5fdddef08c9f6f3b89e1e15cfa6d316055327bfe3f806acdbfca1",
                     "pkg:generic/jboss-unified-push-1.0.0.Beta1-maven-repository.zip?checksum=sha256%3A1c2a89f755d5fdddef08c9f6f3b89e1e15cfa6d316055327bfe3f806acdbfca1",
-                    List.of(operationExpectedPurl, operationExpectedPurlVersioned),
+                    List.of(operationExpectedPurlVersioned),
                     Field.PURL);
 
             validateDependencies(
