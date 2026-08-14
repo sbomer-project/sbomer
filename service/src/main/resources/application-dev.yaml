@@ -118,9 +118,6 @@ sbomer:
       max-concurrent-generations: 4
       sync-batch: 5
 
-  purl-qualifiers-allow-list:
-  - repository_url
-
   controller:
     generation-request:
       # Path to the directory that is mounted within minikube on a path

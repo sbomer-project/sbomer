@@ -30,9 +30,6 @@ sbomer:
     #web:
     #  url:
 
-  purl-qualifiers-allow-list:
-    - repository_url
-
   controller:
     generation-request:
       # This path is (in the service deployment) the mount

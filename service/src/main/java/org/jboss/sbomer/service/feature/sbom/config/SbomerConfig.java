@@ -17,8 +17,6 @@
  */
 package org.jboss.sbomer.service.feature.sbom.config;
 
-import java.util.List;
-
 import io.smallrye.config.ConfigMapping;
 import jakarta.enterprise.context.ApplicationScoped;
 
@@ -29,8 +27,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 @ConfigMapping(prefix = "sbomer")
 public interface SbomerConfig {
     String apiUrl();
-
-    List<String> purlQualifiersAllowList();
 
     ControllerConfig controller();
 

@@ -124,5 +124,25 @@ class SBOMServiceTest {
             assertEquals("416640206274228224", sbom.getId());
             assertEquals(purl, sbom.getRootPurl());
         }
+
+        @Test
+        void testGetSbomByPurlMrrcFallback() {
+            String purl = "pkg:maven/org.eclipse.microprofile.graphql/microprofile-graphql-parent@1.1.0.redhat-00008?type=pom";
+            String qualifier = "repository_url=https%3A%2F%2Fmaven.repository.redhat.com%2Fga%2F";
+            String newPurl = purl + "&" + qualifier;
+            Sbom sbom = sbomService.findByPurl(newPurl);
+            assertNotNull(sbom);
+            assertEquals("416640206274228224", sbom.getId());
+            assertEquals(purl, sbom.getRootPurl());
+        }
+
+        @Test
+        void testGetSbomByPurlNoFallback() {
+            String purl = "pkg:maven/org.eclipse.microprofile.graphql/microprofile-graphql-parent@1.1.0.redhat-00008?type=pom";
+            String qualifier = "repository_url=http://repo.maven.apache.org/maven2";
+            String newPurl = purl + "&" + qualifier;
+            Sbom sbom = sbomService.findByPurl(newPurl);
+            assertNull(sbom);
+        }
     }
 }

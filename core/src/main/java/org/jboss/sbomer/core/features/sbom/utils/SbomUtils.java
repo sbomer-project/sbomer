@@ -64,6 +64,7 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.commonjava.atlas.maven.ident.ref.SimpleArtifactRef;
@@ -129,7 +130,11 @@ public class SbomUtils {
 
     public static final String EVIDENCE_LICENSE_ACKNOWLEDGEMENT = "declared";
 
-    private static final String REPOSITORY_URL_QUALIFIER = "repository_url";
+    private static final String PURL_QUALIFIER_REPOSITORY_URL = "repository_url";
+
+    private static final String PURL_SCHEME = "pkg:";
+
+    private static final String PURL_OCI_TYPE = "oci";
 
     private static final String PURL_REDHAT_NPM_NAMESPACE_PREFIX = "@redhat";
 
@@ -1310,7 +1315,7 @@ public class SbomUtils {
 
         try {
             return PackageURLBuilder.aPackageURL()
-                    .withType("oci")
+                    .withType(PURL_OCI_TYPE)
                     .withName(repositoryName)
                     .withVersion(imageDigest)
                     .build()
@@ -1507,6 +1512,64 @@ public class SbomUtils {
         }
     }
 
+    private static boolean isPurl(String purl) {
+        return Strings.CI.startsWith(purl, PURL_SCHEME);
+    }
+
+    /**
+     * Returns the canonical form of the provided purl or the original purl if parsing fails.
+     *
+     * @param purl the purl to canonicalize
+     * @return the canonical purl or the original purl if parsing fails
+     */
+    public static String canonicalizePurl(String purl) {
+        if (StringUtils.isBlank(purl)) {
+            return null;
+        }
+
+        if (!isPurl(purl)) {
+            return purl;
+        }
+
+        try {
+            PackageURL packageURL = new PackageURL(purl);
+            return packageURL.toString();
+        } catch (MalformedPackageURLException | IllegalArgumentException e) {
+            log.warn("Purl '{}' could not be canonicalized", purl, e);
+            return purl;
+        }
+    }
+
+    /**
+     * Returns the toggled MRRC qualifier if present, or {@code null} if no alternate form.
+     *
+     * @param purl the purl to toggle
+     * @return the toggled purl in canonical form, or {@code null} if there is no MRRC qualifier
+     */
+    public static String toggleMrrcQualifierOfPurl(String purl) {
+        if (!isPurl(purl)) {
+            return null;
+        }
+
+        try {
+            PackageURL packageURL = new PackageURL(purl);
+            Map<String, String> qualifiers = packageURL.getQualifiers();
+            String repositoryUrl = MapUtils.getString(qualifiers, PURL_QUALIFIER_REPOSITORY_URL);
+
+            if (repositoryUrl == null) {
+                return packageURL.toBuilder().withQualifier(PURL_QUALIFIER_REPOSITORY_URL, MRRC_URL).build().toString();
+            }
+
+            if (MRRC_URL.equals(repositoryUrl)) {
+                return packageURL.toBuilder().withoutQualifier(PURL_QUALIFIER_REPOSITORY_URL).build().toString();
+            }
+        } catch (MalformedPackageURLException | IllegalArgumentException e) {
+            log.debug("Purl '{}' could not be parsed", purl, e);
+        }
+
+        return null;
+    }
+
     /**
      * Adds the MRRC {@code repository_url} qualifier to the purl of the provided component if the purl has a Maven type
      * and a Red Hat version.
@@ -1519,7 +1582,7 @@ public class SbomUtils {
             return addQualifiersToPurlOfComponent(component, Map.of());
         }
 
-        return addQualifiersToPurlOfComponent(component, Map.of(REPOSITORY_URL_QUALIFIER, MRRC_URL));
+        return addQualifiersToPurlOfComponent(component, Map.of(PURL_QUALIFIER_REPOSITORY_URL, MRRC_URL));
     }
 
     /**

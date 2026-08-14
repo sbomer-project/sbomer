@@ -50,8 +50,7 @@ import org.jboss.sbomer.core.features.sbom.enums.RequestEventStatus;
 import org.jboss.sbomer.core.features.sbom.rest.Page;
 import org.jboss.sbomer.core.features.sbom.utils.MDCUtils;
 import org.jboss.sbomer.core.features.sbom.utils.ObjectMapperProvider;
-import org.jboss.sbomer.core.features.sbom.utils.UrlUtils;
-import org.jboss.sbomer.service.feature.sbom.config.SbomerConfig;
+import org.jboss.sbomer.core.features.sbom.utils.SbomUtils;
 import org.jboss.sbomer.service.feature.sbom.features.umb.producer.NotificationService;
 import org.jboss.sbomer.service.feature.sbom.k8s.model.GenerationRequest;
 import org.jboss.sbomer.service.feature.sbom.k8s.model.GenerationRequestBuilder;
@@ -82,9 +81,6 @@ import lombok.extern.slf4j.Slf4j;
 @ApplicationScoped
 @Slf4j
 public class SbomService {
-
-    @Inject
-    SbomerConfig sbomerConfig;
 
     @Inject
     SbomRepository sbomRepository;
@@ -496,17 +492,42 @@ public class SbomService {
     }
 
     /**
-     * Searches for the latest generated SBOM matching the provided {@code purl}.
+     * Searches for the latest generated SBOM matching the provided {@code purl}. The purl is canonicalized on both
+     * sides so that the match is independent of representation.
      *
-     * @param purl
+     * @param purl the purl
      * @return The latest generated SBOM or {@code null}.
      */
     public Sbom findByPurl(String purl) {
-        String polishedPurl = UrlUtils.removeQualifiersFromPurl(purl, sbomerConfig.purlQualifiersAllowList());
-        log.debug("Trying to find latest generated SBOM for purl: '{}' (polished to '{}')", purl, polishedPurl);
+        String canonicalPurl = SbomUtils.canonicalizePurl(purl);
+        log.debug("Trying to find latest generated SBOM for purl: '{}' (canonicalized to '{}')", purl, canonicalPurl);
+        Sbom exactSbom = findByExactPurl(canonicalPurl);
 
+        if (exactSbom != null) {
+            return exactSbom;
+        }
+
+        String alternatePurl = SbomUtils.toggleMrrcQualifierOfPurl(canonicalPurl);
+
+        if (alternatePurl == null) {
+            return null;
+        }
+
+        Sbom alternateSbom = findByExactPurl(alternatePurl);
+
+        if (alternateSbom != null) {
+            log.debug(
+                    "Toggled the repository_url qualifier for manifest '{}' so that purl '{}' matched",
+                    alternateSbom.getId(),
+                    alternatePurl);
+        }
+
+        return alternateSbom;
+    }
+
+    private Sbom findByExactPurl(String purl) {
         QueryParameters parameters = QueryParameters.builder()
-                .rsqlQuery("rootPurl=eq='" + polishedPurl + "'")
+                .rsqlQuery("rootPurl=eq='" + purl + "'")
                 .sort("creationTime=desc=")
                 .pageSize(10)
                 .pageIndex(0)
@@ -514,14 +535,13 @@ public class SbomService {
 
         List<Sbom> sboms = sbomRepository.search(parameters);
 
-        log.debug("Found {} results for the '{}' purl", sboms.size(), polishedPurl);
+        log.debug("Found {} results for the '{}' purl", sboms.size(), purl);
 
         if (sboms.isEmpty()) {
             return null;
         }
 
         return sboms.get(0);
-
     }
 
     public SbomGenerationRequest findRequestByIdentifier(GenerationRequestType type, String identifier) {
