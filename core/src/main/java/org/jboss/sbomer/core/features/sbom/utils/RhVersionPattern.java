@@ -22,21 +22,15 @@ import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
 
 public class RhVersionPattern {
+    private static final String RH_VERSION_EXPR = "[.-]redhat-\\d+$";
+
+    private static final Pattern RH_VERSION_PATTERN = Pattern.compile(RH_VERSION_EXPR);
 
     private RhVersionPattern() {
         // This is a utility class
     }
 
-    private static final String RH_VERSION_EXPR = "[.-]redhat-\\d+$";
-    private static final String RH_NPM_PURL_VERSION = ".*(?:%40redhat|@redhat).*";
-    private static final Pattern RH_VERSION_PATTERN = Pattern.compile(RH_VERSION_EXPR);
-    private static final Pattern RH_NPM_PURL_PATTERN = Pattern.compile(RH_NPM_PURL_VERSION);
-
     public static boolean isRhVersion(String version) {
         return StringUtils.isNotBlank(version) && RH_VERSION_PATTERN.matcher(version).find();
-    }
-
-    public static boolean isRhPurl(String purl) {
-        return StringUtils.isNotBlank(purl) && RH_NPM_PURL_PATTERN.matcher(purl).matches();
     }
 }

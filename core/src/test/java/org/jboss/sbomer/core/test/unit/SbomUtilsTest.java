@@ -1124,4 +1124,20 @@ class SbomUtilsTest {
                 Type.FILE);
         assertEquals(new PackageURL(purl).toString(), SbomUtils.addMrrcQualifierToPurlOfComponent(component));
     }
+
+    @Test
+    void testIsRhNpmPurl() {
+        assertTrue(SbomUtils.isRhNpmPurl("pkg:npm/%40redhat/kogito-tooling-keyboard-shortcuts@0.9.0-2"));
+        assertTrue(SbomUtils.isRhNpmPurl("pkg:npm/%40redhat-cloud-services/frontend-components@7.10.4"));
+    }
+
+    @Test
+    void testIsNotRhNpmPurl() {
+        assertFalse(SbomUtils.isRhNpmPurl("pkg:npm/%40edge-runtime/cookies@4.1.1"));
+        assertFalse(SbomUtils.isRhNpmPurl("pkg:maven/org.apache.logging.log4j/log4j@redhat-00001"));
+        assertFalse(SbomUtils.isRhNpmPurl("https://github.com/FasterXML/jackson-annotations.git"));
+        assertFalse(SbomUtils.isRhNpmPurl(null));
+        assertFalse(SbomUtils.isRhNpmPurl(""));
+        assertFalse(SbomUtils.isRhNpmPurl(" "));
+    }
 }
