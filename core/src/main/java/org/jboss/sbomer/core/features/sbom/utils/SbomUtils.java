@@ -1115,9 +1115,11 @@ public class SbomUtils {
             return identity;
         }).toList();
 
-        Evidence evidence = new Evidence();
-        evidence.setIdentities(identities);
-        c.setEvidence(evidence);
+        if (c.getEvidence() == null) {
+            c.setEvidence(new Evidence());
+        }
+
+        c.getEvidence().setIdentities(identities);
     }
 
     public static Bom fromPath(Path path) {
