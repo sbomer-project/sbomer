@@ -1071,6 +1071,21 @@ class SbomUtilsTest {
         assertEquals(newPurl, c.getBomRef());
     }
 
+    void testCanonicalizePurl() {
+        assertEquals(
+                "pkg:maven/com.redhat.quarkus.platform/quarkus-bom@3.15.1.redhat-00003?repository_url=https%3A%2F%2Fmaven.repository.redhat.com%2Fga%2F&type=pom",
+                SbomUtils.canonicalizePurl(
+                        "pkg:maven/com.redhat.quarkus.platform/quarkus-bom@3.15.1.redhat-00003?type=pom&repository_url=https://maven.repository.redhat.com/ga/"));
+    }
+
+    @Test
+    void testCanonicalizePurlKeepsInvalidOriginal() {
+        assertNull(SbomUtils.canonicalizePurl(null));
+        assertEquals(
+                "https://maven.repository.redhat.com/ga/",
+                SbomUtils.canonicalizePurl("https://maven.repository.redhat.com/ga/"));
+    }
+
     @Test
     void testAddMrrc() throws MalformedPackageURLException {
         String purl = "pkg:maven/org.apache.logging.log4j/log4j@2.19.0.redhat-00001?type=pom";
@@ -1129,6 +1144,24 @@ class SbomUtilsTest {
                 purl,
                 Type.FILE);
         assertEquals(new PackageURL(purl).toString(), SbomUtils.addMrrcQualifierToPurlOfComponent(component));
+    }
+
+    @Test
+    void testToggleMrrcQualifier() throws MalformedPackageURLException {
+        String purl = "pkg:maven/org.apache.logging.log4j/log4j@2.19.0.redhat-00001?type=pom";
+        String qualifier = "repository_url=https%3A%2F%2Fmaven.repository.redhat.com%2Fga%2F";
+        assertEquals(new PackageURL(purl + "&" + qualifier).toString(), SbomUtils.toggleMrrcQualifierOfPurl(purl));
+        assertEquals(purl, SbomUtils.toggleMrrcQualifierOfPurl(purl + "&" + qualifier));
+    }
+
+    @Test
+    void testToggleMrrcQualifierOnAlreadyExisting() {
+        String purl = "pkg:oci/ruby-25@sha256%3A51114a80de5f48af17cbb362d33f4994c840720222b8fc9f17ea043432d87726";
+        String qualifier = "repository_url=registry.access.redhat.com%2Frhel8%2Fruby-25&tag=1-260";
+        String newPurl = purl + "?" + qualifier;
+        assertNull(SbomUtils.toggleMrrcQualifierOfPurl(null));
+        assertNull(SbomUtils.toggleMrrcQualifierOfPurl(newPurl));
+        assertNull(SbomUtils.toggleMrrcQualifierOfPurl("https://maven.repository.redhat.com/ga/"));
     }
 
     @Test

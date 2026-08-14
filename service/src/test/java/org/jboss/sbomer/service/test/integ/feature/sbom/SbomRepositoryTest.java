@@ -45,6 +45,9 @@ import org.jboss.sbomer.service.test.utils.QuarkusTransactionalTest;
 import org.jboss.sbomer.service.test.utils.umb.TestUmbProfile;
 import org.junit.jupiter.api.Test;
 
+import com.github.packageurl.MalformedPackageURLException;
+import com.github.packageurl.PackageURL;
+
 import io.quarkus.logging.Log;
 import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
@@ -231,5 +234,24 @@ class SbomRepositoryTest {
         assertEquals("816640206274228223", sbom.getId());
         assertEquals("OPBGCD23DVYAC", sbom.getIdentifier());
         assertEquals(GenerationRequestType.OPERATION, sbom.getGenerationRequest().getType());
+    }
+
+    @Test
+    void testRootPurlIsCanonicalized() throws MalformedPackageURLException {
+        Bom bom = SbomUtils.createBom();
+        assertNotNull(bom);
+        String purl = "pkg:maven/com.fasterxml.jackson.core/jackson-core@2.14.1.redhat-00001?type=jar&classifier=sources";
+        Component mainComponent = SbomUtils.createComponent(
+                "com.fasterxml.jackson.core",
+                "jackson-core",
+                "2.14.1.redhat-00001",
+                null,
+                purl,
+                Component.Type.LIBRARY);
+        assertEquals(purl, mainComponent.getPurl());
+        bom.setMetadata(SbomUtils.createDefaultSbomerMetadata(mainComponent, "2.14.1.redhat-00001"));
+        Sbom sbom = Sbom.builder().withSbom(SbomUtils.toJsonNode(bom)).build();
+        sbom.prePersist();
+        assertEquals(new PackageURL(purl).toString(), sbom.getRootPurl());
     }
 }

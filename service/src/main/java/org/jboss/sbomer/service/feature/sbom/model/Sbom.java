@@ -122,7 +122,7 @@ public class Sbom extends PanacheEntityBase {
         rootPurl = null;
 
         if (bom != null && bom.getMetadata() != null && bom.getMetadata().getComponent() != null) {
-            rootPurl = bom.getMetadata().getComponent().getPurl();
+            rootPurl = SbomUtils.canonicalizePurl(bom.getMetadata().getComponent().getPurl());
         }
     }
 
