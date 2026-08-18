@@ -230,11 +230,32 @@ public class CycloneDxGenerateOperationCommand extends AbstractGenerateOperation
         WorkaroundMissingNpmDependencies workaround = new WorkaroundMissingNpmDependencies(pncService);
 
         for (AnalyzedArtifact artifact : artifactsToManifest) {
+            String artifactPurl = artifact.getArtifact().getPurl();
+
+            if (hasUnusablePurl(artifact)) {
+                String rebuilt = createGenericPurl(
+                        artifact.getArtifact().getFilename(),
+                        Optional.ofNullable(artifact.getArtifact().getSha256()));
+                log.info(
+                        "Artifact '{}' has no target repository and an unusable purl, rebuilding from '{}' to '{}'",
+                        artifact.getArtifact().getFilename(),
+                        artifactPurl,
+                        rebuilt);
+                artifactPurl = rebuilt;
+            }
+
             // Create the component if not already created (e.g., the same pom can be a plain .pom or embedded as
             // pom.xml)
-            if (!purlToComponents.containsKey(artifact.getArtifact().getPurl())) {
+            if (!purlToComponents.containsKey(artifactPurl)) {
                 // Create a component entry for the artifact
                 Component component = createComponent(artifact, Scope.REQUIRED, Type.LIBRARY);
+
+                // Override the purl/bomRef if we rebuilt it
+                if (!artifactPurl.equals(artifact.getArtifact().getPurl())) {
+                    component.setPurl(artifactPurl);
+                    component.setBomRef(artifactPurl);
+                }
+
                 setArtifactMetadata(component, artifact.getArtifact(), pncService.getApiUrl());
                 setPncBuildMetadata(component, artifact.getArtifact().getBuild(), pncService.getApiUrl());
 
@@ -251,20 +272,20 @@ public class CycloneDxGenerateOperationCommand extends AbstractGenerateOperation
 
                 // Add the component to the SBOM and to the internal cache
                 bom.addComponent(component);
-                purlToComponents.put(artifact.getArtifact().getPurl(), component);
+                purlToComponents.put(artifactPurl, component);
 
                 // Create a dependency entry
-                Dependency dependency = createDependency(artifact.getArtifact().getPurl());
+                Dependency dependency = createDependency(artifactPurl);
 
                 // Add the dependency to the BOM and to the internal caches
                 bom.addDependency(dependency);
-                purl256ToDependencies.put(artifact.getArtifact().getPurl(), dependency);
+                purl256ToDependencies.put(artifactPurl, dependency);
             }
 
             // Add the filepath -> dependency data to the cache, which is used to compute the dependency hierarchy.
             // The same dependency (identified by purl) might be present in multiple locations inside the zip, with
             // different filepath
-            Dependency dep = purl256ToDependencies.get(artifact.getArtifact().getPurl());
+            Dependency dep = purl256ToDependencies.get(artifactPurl);
             Optional.ofNullable(artifact.getArchiveFilenames())
                     .orElse(List.of())
                     .forEach(filename -> pathToDependencies.put(filename, dep));
@@ -321,6 +342,33 @@ public class CycloneDxGenerateOperationCommand extends AbstractGenerateOperation
             }
         } catch (KojiClientException e) {
             log.error("Failed to retrieve brew build.", e);
+        }
+    }
+
+    /**
+     * Checks whether an analyzed artifact has a purl that cannot be used as-is. This applies to artifacts from
+     * deliverable analysis that have no target repository (e.g. Windows binaries), where PNC assigns a purl with the
+     * artifact ID as the name and a nonsensical version.
+     */
+    private boolean hasUnusablePurl(AnalyzedArtifact analyzedArtifact) {
+        org.jboss.pnc.dto.Artifact artifact = analyzedArtifact.getArtifact();
+
+        if (artifact.getTargetRepository() != null || artifact.getFilename() == null) {
+            return false;
+        }
+
+        String purl = artifact.getPurl();
+        if (purl == null) {
+            return true;
+        }
+
+        try {
+            PackageURL parsed = new PackageURL(purl);
+            boolean numericName = parsed.getName().matches("\\d+");
+            boolean nullVersion = parsed.getVersion() != null && parsed.getVersion().contains("null");
+            return numericName || nullVersion;
+        } catch (MalformedPackageURLException e) {
+            return true;
         }
     }
 

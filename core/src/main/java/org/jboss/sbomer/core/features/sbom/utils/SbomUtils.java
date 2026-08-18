@@ -219,6 +219,11 @@ public class SbomUtils {
     }
 
     private static void setCoordinates(Component component, Artifact artifact) {
+        if (artifact.getTargetRepository() == null) {
+            component.setName(artifact.getFilename());
+            return;
+        }
+
         switch (artifact.getTargetRepository().getRepositoryType()) {
             case NPM: {
                 NpmPackageRef coordinates = ArtifactUtil.parseNPMCoordinates(artifact);
@@ -401,6 +406,7 @@ public class SbomUtils {
         LicenseChoice licenseChoice = new LicenseChoice();
         List<String> spdxLicenseIds = licenseInfos.stream()
                 .map(LicenseInfo::getSpdxLicenseId)
+                .filter(Objects::nonNull)
                 .filter(spdxLicenseId -> !SpdxLicenseUtils.isUnknownLicenseId(spdxLicenseId))
                 .toList();
 
@@ -417,6 +423,7 @@ public class SbomUtils {
 
         licenseChoice.setLicenses(
                 licenseInfos.stream()
+                        .filter(licenseInfo -> licenseInfo.getSpdxLicenseId() != null)
                         .filter(licenseInfo -> !SpdxLicenseUtils.isUnknownLicenseId(licenseInfo.getSpdxLicenseId()))
                         .map(licenseInfo -> {
                             License license = new License();
@@ -472,8 +479,14 @@ public class SbomUtils {
 
     public static Component createComponent(AnalyzedArtifact analyzedArtifact, Scope scope, Type type) {
         Component component = createComponent(analyzedArtifact.getArtifact(), scope, type);
-        Map<String, List<LicenseInfo>> uniqueLicensesMap = analyzedArtifact.getLicenses()
-                .stream()
+
+        Set<LicenseInfo> licenses = analyzedArtifact.getLicenses();
+        if (licenses == null || licenses.isEmpty()) {
+            return component;
+        }
+
+        Map<String, List<LicenseInfo>> uniqueLicensesMap = licenses.stream()
+                .filter(licenseInfo -> licenseInfo.getSpdxLicenseId() != null)
                 .filter(licenseInfo -> !SpdxLicenseUtils.isUnknownLicenseId(licenseInfo.getSpdxLicenseId()))
                 .collect(Collectors.groupingBy(LicenseInfo::getSpdxLicenseId));
         LicenseChoice licenseChoice = new LicenseChoice();

@@ -62,6 +62,8 @@ import org.cyclonedx.model.Service;
 import org.cyclonedx.model.component.evidence.Identity;
 import org.cyclonedx.model.component.evidence.Identity.Field;
 import org.cyclonedx.model.metadata.ToolInformation;
+import org.jboss.pnc.api.deliverablesanalyzer.dto.LicenseInfo;
+import org.jboss.pnc.dto.Artifact;
 import org.jboss.pnc.dto.Build;
 import org.jboss.pnc.dto.BuildConfigurationRevision;
 import org.jboss.pnc.dto.Environment;
@@ -1207,5 +1209,67 @@ class SbomUtilsTest {
         List<License> licenses = componentEvidenceLicenses.getLicenses();
         assertEquals(1, licenses.size());
         assertEquals("Apache-2.0", licenses.get(0).getId());
+    }
+
+    @Test
+    void shouldCreateComponentFromArtifactWithNullTargetRepository() {
+        String windowsPurl = "pkg:generic/17517796@null-1.win?filename=java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi&platforms=x86_64";
+        Artifact artifact = Artifact.builder()
+                .id("17517796")
+                .purl(windowsPurl)
+                .filename("java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi")
+                .md5("abc123")
+                .sha1("def456")
+                .sha256("789ghi")
+                .build();
+
+        Component component = assertDoesNotThrow(
+                () -> SbomUtils.createComponent(artifact, Component.Scope.REQUIRED, Type.LIBRARY));
+        assertEquals("java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi", component.getName());
+        assertEquals(windowsPurl, component.getPurl());
+    }
+
+    @Test
+    void shouldCreateComponentFromAnalyzedArtifactWithNullLicenses() {
+        String windowsPurl = "pkg:generic/17517796@null-1.win?filename=java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi&platforms=x86_64";
+        Artifact artifact = Artifact.builder()
+                .id("17517796")
+                .purl(windowsPurl)
+                .filename("java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi")
+                .md5("abc123")
+                .sha1("def456")
+                .sha256("789ghi")
+                .build();
+
+        AnalyzedArtifact analyzedArtifact = AnalyzedArtifact.builder().artifact(artifact).licenses(null).build();
+
+        Component component = assertDoesNotThrow(
+                () -> SbomUtils.createComponent(analyzedArtifact, Component.Scope.REQUIRED, Type.LIBRARY));
+        assertNotNull(component);
+        assertEquals("java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi", component.getName());
+    }
+
+    @Test
+    void shouldCreateComponentFromAnalyzedArtifactWithNullSpdxLicenseId() {
+        String windowsPurl = "pkg:generic/17517796@null-1.win?filename=java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi&platforms=x86_64";
+        Artifact artifact = Artifact.builder()
+                .id("17517796")
+                .purl(windowsPurl)
+                .filename("java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi")
+                .md5("abc123")
+                .sha1("def456")
+                .sha256("789ghi")
+                .build();
+
+        LicenseInfo licenseWithNullId = LicenseInfo.builder().name("Some License").spdxLicenseId(null).build();
+
+        AnalyzedArtifact analyzedArtifact = AnalyzedArtifact.builder()
+                .artifact(artifact)
+                .licenses(Set.of(licenseWithNullId))
+                .build();
+
+        Component component = assertDoesNotThrow(
+                () -> SbomUtils.createComponent(analyzedArtifact, Component.Scope.REQUIRED, Type.LIBRARY));
+        assertNotNull(component);
     }
 }
