@@ -227,6 +227,10 @@ public class SbomUtils {
         switch (artifact.getTargetRepository().getRepositoryType()) {
             case NPM: {
                 NpmPackageRef coordinates = ArtifactUtil.parseNPMCoordinates(artifact);
+                if (coordinates == null) {
+                    component.setName(artifact.getFilename());
+                    break;
+                }
                 String[] scopeName = coordinates.getName().split("/");
                 if (scopeName.length == 2) {
                     component.setGroup(scopeName[0]);
@@ -244,6 +248,10 @@ public class SbomUtils {
             }
             case MAVEN: {
                 SimpleArtifactRef coordinates = ArtifactUtil.parseMavenCoordinates(artifact);
+                if (coordinates == null) {
+                    component.setName(artifact.getFilename());
+                    break;
+                }
                 component.setGroup(coordinates.getGroupId());
                 component.setName(coordinates.getArtifactId());
                 component.setVersion(coordinates.getVersionString());

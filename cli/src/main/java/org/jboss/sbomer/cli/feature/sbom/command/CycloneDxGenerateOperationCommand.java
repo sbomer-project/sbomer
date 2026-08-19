@@ -230,6 +230,13 @@ public class CycloneDxGenerateOperationCommand extends AbstractGenerateOperation
         WorkaroundMissingNpmDependencies workaround = new WorkaroundMissingNpmDependencies(pncService);
 
         for (AnalyzedArtifact artifact : artifactsToManifest) {
+            if (isDistributionArtifact(artifact.getArtifact(), fileName, distributionHashes)) {
+                log.info(
+                        "Skipping artifact '{}' — matches the distribution component by filename and checksum",
+                        artifact.getArtifact().getFilename());
+                continue;
+            }
+
             String artifactPurl = artifact.getArtifact().getPurl();
 
             if (hasUnusablePurl(artifact)) {
@@ -350,6 +357,24 @@ public class CycloneDxGenerateOperationCommand extends AbstractGenerateOperation
      * deliverable analysis that have no target repository (e.g. Windows binaries), where PNC assigns a purl with the
      * artifact ID as the name and a nonsensical version.
      */
+    private boolean isDistributionArtifact(
+            org.jboss.pnc.dto.Artifact artifact,
+            String distributionFilename,
+            Optional<List<Hash>> distributionHashes) {
+        if (distributionFilename == null || !distributionFilename.equals(artifact.getFilename())) {
+            return false;
+        }
+        String artifactSha256 = artifact.getSha256();
+        if (artifactSha256 == null || distributionHashes.isEmpty()) {
+            return false;
+        }
+        return distributionHashes.get()
+                .stream()
+                .anyMatch(
+                        h -> Hash.Algorithm.SHA_256.getSpec().equals(h.getAlgorithm())
+                                && artifactSha256.equals(h.getValue()));
+    }
+
     private boolean hasUnusablePurl(AnalyzedArtifact analyzedArtifact) {
         org.jboss.pnc.dto.Artifact artifact = analyzedArtifact.getArtifact();
 
