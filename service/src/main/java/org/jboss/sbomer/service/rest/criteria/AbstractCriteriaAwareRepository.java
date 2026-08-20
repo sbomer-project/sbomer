@@ -52,7 +52,8 @@ import lombok.extern.slf4j.Slf4j;
 @Transactional
 public abstract class AbstractCriteriaAwareRepository<T> implements PanacheRepositoryBase<T, String> {
 
-    private static final Pattern likePattern = Pattern.compile("(%[a-zA-Z0-9\\s]+%)");
+    private static final Pattern LIKE_PATTERN = Pattern.compile("(%[a-zA-Z0-9\\s]+%)");
+    private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s");
 
     protected static final RSQLParser predicateParser;
     protected static final RSQLParser sortParser;
@@ -110,21 +111,23 @@ public abstract class AbstractCriteriaAwareRepository<T> implements PanacheRepos
     }
 
     private String preprocessRSQL(String rsql) {
-        String result = rsql;
-        Matcher matcher = likePattern.matcher(rsql);
-        while (matcher.find()) {
-            result = rsql.replaceAll(matcher.group(1), matcher.group(1).replaceAll("\\s", WILDCARD_CHAR));
-        }
-        return result;
+        return LIKE_PATTERN.matcher(rsql)
+                .replaceAll(
+                        match -> Matcher.quoteReplacement(
+                                WHITESPACE_PATTERN.matcher(match.group(1))
+                                        .replaceAll(Matcher.quoteReplacement(WILDCARD_CHAR))));
     }
 
     protected <X> CriteriaQuery<X> handleRsql(CriteriaQuery<X> query, Root<T> root, String rsqlQuery) {
-
         if (Strings.isEmpty(rsqlQuery)) {
             return query;
         }
 
-        log.debug("Applying provided RSQL query to enhance search: '{}'", rsqlQuery);
+        String preprocessed = preprocessRSQL(rsqlQuery);
+        log.debug(
+                "Applying provided RSQL query to enhance search: '{}' (preprocessed to '{}')",
+                rsqlQuery,
+                preprocessed);
 
         // Create custom implementation of RSQLVisitor, which converts nodes to predicates using
         // CustomizedPredicateBuilder or CustomizedPredicateBuilderStrategy for custom operators
@@ -132,7 +135,7 @@ public abstract class AbstractCriteriaAwareRepository<T> implements PanacheRepos
                 .withPredicateBuilderStrategy(new CustomizedPredicateBuilderStrategy());
 
         // create RSQLParser with default and custom operators
-        Node rootNode = predicateParser.parse(preprocessRSQL(rsqlQuery));
+        Node rootNode = predicateParser.parse(preprocessed);
         Predicate predicate = rootNode.accept(visitor, entityManagerAdapter);
 
         return query.where(predicate);

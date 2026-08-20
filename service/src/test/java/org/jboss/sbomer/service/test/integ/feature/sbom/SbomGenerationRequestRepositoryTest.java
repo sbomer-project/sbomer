@@ -19,6 +19,7 @@ package org.jboss.sbomer.service.test.integ.feature.sbom;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -83,6 +84,8 @@ class SbomGenerationRequestRepositoryTest {
 
     static final String REQUEST_ID_2_DELETE = "FFAASSBBDD";
     static final String BUILD_ID_2_DELETE = "RRYT3LBXDVYACDD";
+
+    static final String IMPORTED_REQUEST_ID = "AASSBB";
 
     static Path sbomPath(String fileName) {
         return Paths.get("src", "test", "resources", "sboms", fileName);
@@ -221,6 +224,25 @@ class SbomGenerationRequestRepositoryTest {
         assertEquals(OPERATION_ID, request.getIdentifier());
         assertEquals(GenerationRequestType.OPERATION, request.getType());
         assertEquals("FINISHED".toLowerCase(), request.getStatus().toName());
+    }
+
+    @Test
+    void testRSQLWithMultipleLikes() {
+        List<SbomGenerationRequest> requests = sbomGenerationRequestRepository.search(
+                QueryParameters.builder()
+                        .rsqlQuery("reason=like=%it succeeded% and reason=like=%t succeede%")
+                        .pageIndex(0)
+                        .pageSize(10)
+                        .build());
+        assertEquals(1, requests.size());
+        assertEquals(IMPORTED_REQUEST_ID, requests.get(0).getId());
+        List<SbomGenerationRequest> requests2 = sbomGenerationRequestRepository.search(
+                QueryParameters.builder()
+                        .rsqlQuery("reason=like=%it succeeded% and reason=like=%other%")
+                        .pageIndex(0)
+                        .pageSize(10)
+                        .build());
+        assertTrue(requests2.isEmpty());
     }
 
     @Test
