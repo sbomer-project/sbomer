@@ -219,9 +219,28 @@ public class SbomUtils {
     }
 
     private static void setCoordinates(Component component, Artifact artifact) {
+        if (artifact.getTargetRepository() == null) {
+            if (artifact.getFilename() == null) {
+                throw new ApplicationException(
+                        "Cannot create a valid component for artifact '{}': no target repository and no filename",
+                        artifact.getId());
+            }
+            component.setName(artifact.getFilename());
+            return;
+        }
+
         switch (artifact.getTargetRepository().getRepositoryType()) {
             case NPM: {
                 NpmPackageRef coordinates = ArtifactUtil.parseNPMCoordinates(artifact);
+                if (coordinates == null) {
+                    if (artifact.getFilename() == null) {
+                        throw new ApplicationException(
+                                "Cannot create a valid component for artifact '{}': unparseable NPM coordinates and no filename",
+                                artifact.getId());
+                    }
+                    component.setName(artifact.getFilename());
+                    break;
+                }
                 String[] scopeName = coordinates.getName().split("/");
                 if (scopeName.length == 2) {
                     component.setGroup(scopeName[0]);
@@ -239,14 +258,75 @@ public class SbomUtils {
             }
             case MAVEN: {
                 SimpleArtifactRef coordinates = ArtifactUtil.parseMavenCoordinates(artifact);
+                if (coordinates == null) {
+                    if (artifact.getFilename() == null) {
+                        throw new ApplicationException(
+                                "Cannot create a valid component for artifact '{}': unparseable Maven coordinates and no filename",
+                                artifact.getId());
+                    }
+                    component.setName(artifact.getFilename());
+                    break;
+                }
                 component.setGroup(coordinates.getGroupId());
                 component.setName(coordinates.getArtifactId());
                 component.setVersion(coordinates.getVersionString());
                 break;
             }
             default: {
+                if (artifact.getFilename() == null) {
+                    throw new ApplicationException(
+                            "Cannot create a valid component for artifact '{}': no filename",
+                            artifact.getId());
+                }
                 component.setName(artifact.getFilename());
             }
+        }
+    }
+
+    /**
+     * Checks whether an artifact matches the distribution itself by comparing filename and SHA-256 checksum against the
+     * distribution hashes.
+     */
+    public static boolean isDistributionArtifact(
+            Artifact artifact,
+            String distributionFilename,
+            Optional<List<Hash>> distributionHashes) {
+        if (distributionFilename == null || !distributionFilename.equals(artifact.getFilename())) {
+            return false;
+        }
+        String artifactSha256 = artifact.getSha256();
+        if (artifactSha256 == null || distributionHashes.isEmpty()) {
+            return false;
+        }
+        return distributionHashes.get()
+                .stream()
+                .anyMatch(
+                        h -> Hash.Algorithm.SHA_256.getSpec().equals(h.getAlgorithm())
+                                && artifactSha256.equals(h.getValue()));
+    }
+
+    /**
+     * Checks whether an analyzed artifact has a purl that cannot be used as-is. This applies to artifacts from
+     * deliverable analysis that have no target repository (e.g. Windows binaries), where PNC assigns a purl with the
+     * artifact ID as the name and a nonsensical version.
+     */
+    public static boolean hasUnusablePurl(Artifact artifact) {
+        if (artifact.getTargetRepository() != null) {
+            return false;
+        }
+
+        String purl = artifact.getPurl();
+        if (purl == null) {
+            return true;
+        }
+
+        try {
+            PackageURL parsed = new PackageURL(purl);
+            boolean numericName = parsed.getName().matches("\\d+");
+            boolean nullVersion = parsed.getVersion() != null && parsed.getVersion().contains("null");
+            return numericName || nullVersion;
+        } catch (MalformedPackageURLException e) {
+            return true;
         }
     }
 
@@ -399,10 +479,7 @@ public class SbomUtils {
 
         Evidence evidence = new Evidence();
         LicenseChoice licenseChoice = new LicenseChoice();
-        List<String> spdxLicenseIds = licenseInfos.stream()
-                .map(LicenseInfo::getSpdxLicenseId)
-                .filter(spdxLicenseId -> !SpdxLicenseUtils.isUnknownLicenseId(spdxLicenseId))
-                .toList();
+        List<String> spdxLicenseIds = licenseInfos.stream().map(LicenseInfo::getSpdxLicenseId).toList();
 
         if (SpdxLicenseUtils.containsExpression(spdxLicenseIds)) {
             Expression expression = new Expression();
@@ -415,37 +492,33 @@ public class SbomUtils {
             return;
         }
 
-        licenseChoice.setLicenses(
-                licenseInfos.stream()
-                        .filter(licenseInfo -> !SpdxLicenseUtils.isUnknownLicenseId(licenseInfo.getSpdxLicenseId()))
-                        .map(licenseInfo -> {
-                            License license = new License();
-                            license.setId(licenseInfo.getSpdxLicenseId());
-                            license.setAcknowledgement(EVIDENCE_LICENSE_ACKNOWLEDGEMENT);
-                            String sourceUrl = licenseInfo.getSourceUrl();
+        licenseChoice.setLicenses(licenseInfos.stream().map(licenseInfo -> {
+            License license = new License();
+            license.setId(licenseInfo.getSpdxLicenseId());
+            license.setAcknowledgement(EVIDENCE_LICENSE_ACKNOWLEDGEMENT);
+            String sourceUrl = licenseInfo.getSourceUrl();
 
-                            if (!StringUtils.isBlank(sourceUrl)) {
-                                Property sourceProperty = new Property();
-                                sourceProperty.setName("sourceUrl");
-                                sourceProperty.setValue(sourceUrl);
-                                license.setProperties(List.of(sourceProperty));
-                            }
+            if (!StringUtils.isBlank(sourceUrl)) {
+                Property sourceProperty = new Property();
+                sourceProperty.setName("sourceUrl");
+                sourceProperty.setValue(sourceUrl);
+                license.setProperties(List.of(sourceProperty));
+            }
 
-                            String url = licenseInfo.getUrl();
-                            Optional<URI> optionalURI = getNormalizedUrl(url);
+            String url = licenseInfo.getUrl();
+            Optional<URI> optionalURI = getNormalizedUrl(url);
 
-                            if (optionalURI.isPresent()) {
-                                URI uri = optionalURI.get();
-                                String normalizedUri = uri.toASCIIString();
+            if (optionalURI.isPresent()) {
+                URI uri = optionalURI.get();
+                String normalizedUri = uri.toASCIIString();
 
-                                if (uri.isAbsolute()) {
-                                    license.setUrl(normalizedUri);
-                                }
-                            }
+                if (uri.isAbsolute()) {
+                    license.setUrl(normalizedUri);
+                }
+            }
 
-                            return license;
-                        })
-                        .toList());
+            return license;
+        }).toList());
         evidence.setLicenses(licenseChoice);
         component.setEvidence(evidence);
     }
@@ -472,8 +545,14 @@ public class SbomUtils {
 
     public static Component createComponent(AnalyzedArtifact analyzedArtifact, Scope scope, Type type) {
         Component component = createComponent(analyzedArtifact.getArtifact(), scope, type);
-        Map<String, List<LicenseInfo>> uniqueLicensesMap = analyzedArtifact.getLicenses()
-                .stream()
+
+        Set<LicenseInfo> licenses = analyzedArtifact.getLicenses();
+        if (licenses == null || licenses.isEmpty()) {
+            return component;
+        }
+
+        Map<String, List<LicenseInfo>> uniqueLicensesMap = licenses.stream()
+                .filter(licenseInfo -> licenseInfo.getSpdxLicenseId() != null)
                 .filter(licenseInfo -> !SpdxLicenseUtils.isUnknownLicenseId(licenseInfo.getSpdxLicenseId()))
                 .collect(Collectors.groupingBy(LicenseInfo::getSpdxLicenseId));
         LicenseChoice licenseChoice = new LicenseChoice();

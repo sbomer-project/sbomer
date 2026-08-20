@@ -180,7 +180,7 @@ public class CycloneDxGenerateOperationCommand extends AbstractGenerateOperation
 
             distributionSha256 = distributionHashes.stream()
                     .flatMap(List::stream)
-                    .filter(hash -> hash.getAlgorithm() == Hash.Algorithm.SHA_256.toString())
+                    .filter(hash -> Hash.Algorithm.SHA_256.getSpec().equals(hash.getAlgorithm()))
                     .map(Hash::getValue)
                     .findFirst();
         }
@@ -230,11 +230,40 @@ public class CycloneDxGenerateOperationCommand extends AbstractGenerateOperation
         WorkaroundMissingNpmDependencies workaround = new WorkaroundMissingNpmDependencies(pncService);
 
         for (AnalyzedArtifact artifact : artifactsToManifest) {
+            if (SbomUtils.isDistributionArtifact(artifact.getArtifact(), fileName, distributionHashes)
+                    && SbomUtils.hasUnusablePurl(artifact.getArtifact())) {
+                log.info(
+                        "Skipping artifact '{}' — matches the distribution component by filename and checksum",
+                        artifact.getArtifact().getFilename());
+                continue;
+            }
+
+            String artifactPurl = artifact.getArtifact().getPurl();
+
+            if (SbomUtils.hasUnusablePurl(artifact.getArtifact())) {
+                String rebuilt = createGenericPurl(
+                        artifact.getArtifact().getFilename(),
+                        Optional.ofNullable(artifact.getArtifact().getSha256()));
+                log.info(
+                        "Artifact '{}' has no target repository and an unusable purl, rebuilding from '{}' to '{}'",
+                        artifact.getArtifact().getFilename(),
+                        artifactPurl,
+                        rebuilt);
+                artifactPurl = rebuilt;
+            }
+
             // Create the component if not already created (e.g., the same pom can be a plain .pom or embedded as
             // pom.xml)
-            if (!purlToComponents.containsKey(artifact.getArtifact().getPurl())) {
+            if (!purlToComponents.containsKey(artifactPurl)) {
                 // Create a component entry for the artifact
                 Component component = createComponent(artifact, Scope.REQUIRED, Type.LIBRARY);
+
+                // Override the purl/bomRef if we rebuilt it
+                if (!artifactPurl.equals(artifact.getArtifact().getPurl())) {
+                    component.setPurl(artifactPurl);
+                    component.setBomRef(artifactPurl);
+                }
+
                 setArtifactMetadata(component, artifact.getArtifact(), pncService.getApiUrl());
                 setPncBuildMetadata(component, artifact.getArtifact().getBuild(), pncService.getApiUrl());
 
@@ -251,20 +280,20 @@ public class CycloneDxGenerateOperationCommand extends AbstractGenerateOperation
 
                 // Add the component to the SBOM and to the internal cache
                 bom.addComponent(component);
-                purlToComponents.put(artifact.getArtifact().getPurl(), component);
+                purlToComponents.put(artifactPurl, component);
 
                 // Create a dependency entry
-                Dependency dependency = createDependency(artifact.getArtifact().getPurl());
+                Dependency dependency = createDependency(artifactPurl);
 
                 // Add the dependency to the BOM and to the internal caches
                 bom.addDependency(dependency);
-                purl256ToDependencies.put(artifact.getArtifact().getPurl(), dependency);
+                purl256ToDependencies.put(artifactPurl, dependency);
             }
 
             // Add the filepath -> dependency data to the cache, which is used to compute the dependency hierarchy.
             // The same dependency (identified by purl) might be present in multiple locations inside the zip, with
             // different filepath
-            Dependency dep = purl256ToDependencies.get(artifact.getArtifact().getPurl());
+            Dependency dep = purl256ToDependencies.get(artifactPurl);
             Optional.ofNullable(artifact.getArchiveFilenames())
                     .orElse(List.of())
                     .forEach(filename -> pathToDependencies.put(filename, dep));

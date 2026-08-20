@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -62,13 +63,17 @@ import org.cyclonedx.model.Service;
 import org.cyclonedx.model.component.evidence.Identity;
 import org.cyclonedx.model.component.evidence.Identity.Field;
 import org.cyclonedx.model.metadata.ToolInformation;
+import org.jboss.pnc.api.deliverablesanalyzer.dto.LicenseInfo;
+import org.jboss.pnc.dto.Artifact;
 import org.jboss.pnc.dto.Build;
 import org.jboss.pnc.dto.BuildConfigurationRevision;
 import org.jboss.pnc.dto.Environment;
 import org.jboss.pnc.dto.SCMRepository;
+import org.jboss.pnc.dto.TargetRepository;
 import org.jboss.pnc.dto.response.AnalyzedArtifact;
 import org.jboss.pnc.dto.response.AnalyzedDistribution;
 import org.jboss.pnc.enums.SystemImageType;
+import org.jboss.sbomer.core.errors.ApplicationException;
 import org.jboss.sbomer.core.features.sbom.Constants;
 import org.jboss.sbomer.core.features.sbom.utils.SbomUtils;
 import org.jboss.sbomer.core.features.sbom.utils.VcsUrl;
@@ -607,7 +612,7 @@ class SbomUtilsTest {
 
         distributionSha256 = distributionHashes.stream()
                 .flatMap(List::stream)
-                .filter(hash -> hash.getAlgorithm() == Hash.Algorithm.SHA_256.toString())
+                .filter(hash -> Hash.Algorithm.SHA_256.getSpec().equals(hash.getAlgorithm()))
                 .map(Hash::getValue)
                 .findFirst();
 
@@ -1207,5 +1212,153 @@ class SbomUtilsTest {
         List<License> licenses = componentEvidenceLicenses.getLicenses();
         assertEquals(1, licenses.size());
         assertEquals("Apache-2.0", licenses.get(0).getId());
+    }
+
+    @Test
+    void shouldCreateComponentFromArtifactWithNullTargetRepository() {
+        String windowsPurl = "pkg:generic/17517796@null-1.win?filename=java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi&platforms=x86_64";
+        Artifact artifact = Artifact.builder()
+                .id("17517796")
+                .purl(windowsPurl)
+                .filename("java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi")
+                .md5("abc123")
+                .sha1("def456")
+                .sha256("789ghi")
+                .build();
+
+        Component component = assertDoesNotThrow(
+                () -> SbomUtils.createComponent(artifact, Component.Scope.REQUIRED, Type.LIBRARY));
+        assertEquals("java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi", component.getName());
+        assertEquals(windowsPurl, component.getPurl());
+    }
+
+    @Test
+    void shouldCreateComponentFromAnalyzedArtifactWithNullLicenses() {
+        String windowsPurl = "pkg:generic/17517796@null-1.win?filename=java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi&platforms=x86_64";
+        Artifact artifact = Artifact.builder()
+                .id("17517796")
+                .purl(windowsPurl)
+                .filename("java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi")
+                .md5("abc123")
+                .sha1("def456")
+                .sha256("789ghi")
+                .build();
+
+        AnalyzedArtifact analyzedArtifact = AnalyzedArtifact.builder().artifact(artifact).licenses(null).build();
+
+        Component component = assertDoesNotThrow(
+                () -> SbomUtils.createComponent(analyzedArtifact, Component.Scope.REQUIRED, Type.LIBRARY));
+        assertEquals("java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi", component.getName());
+    }
+
+    @Test
+    void shouldCreateComponentFromAnalyzedArtifactWithNullSpdxLicenseId() {
+        String windowsPurl = "pkg:generic/17517796@null-1.win?filename=java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi&platforms=x86_64";
+        Artifact artifact = Artifact.builder()
+                .id("17517796")
+                .purl(windowsPurl)
+                .filename("java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi")
+                .md5("abc123")
+                .sha1("def456")
+                .sha256("789ghi")
+                .build();
+
+        LicenseInfo licenseWithNullId = LicenseInfo.builder().name("Some License").spdxLicenseId(null).build();
+
+        AnalyzedArtifact analyzedArtifact = AnalyzedArtifact.builder()
+                .artifact(artifact)
+                .licenses(Set.of(licenseWithNullId))
+                .build();
+
+        assertDoesNotThrow(() -> SbomUtils.createComponent(analyzedArtifact, Component.Scope.REQUIRED, Type.LIBRARY));
+    }
+
+    @Test
+    void shouldDetectUnusablePurlForWindowsArtifact() {
+        String garbagePurl = "pkg:generic/17517796@null-1.win?filename=java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi&platforms=x86_64";
+        Artifact artifact = Artifact.builder()
+                .id("17517796")
+                .purl(garbagePurl)
+                .filename("java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi")
+                .md5("abc123")
+                .sha1("def456")
+                .sha256("789ghi")
+                .build();
+
+        assertTrue(SbomUtils.hasUnusablePurl(artifact));
+    }
+
+    @Test
+    void shouldNotDetectUnusablePurlForValidArtifact() {
+        String validPurl = "pkg:maven/org.apache.logging.log4j/log4j@2.19.0.redhat-00001?type=pom";
+        Artifact artifact = Artifact.builder()
+                .id("12345")
+                .purl(validPurl)
+                .filename("log4j-2.19.0.redhat-00001.jar")
+                .targetRepository(TargetRepository.refBuilder().id("1").build())
+                .md5("abc123")
+                .sha1("def456")
+                .sha256("789ghi")
+                .build();
+
+        assertFalse(SbomUtils.hasUnusablePurl(artifact));
+    }
+
+    @Test
+    void shouldDetectUnusablePurlWithNullTargetRepository() {
+        Artifact artifact = Artifact.builder()
+                .id("99999")
+                .purl("pkg:generic/99999@null-1.win")
+                .filename("some-file.msi")
+                .md5("abc123")
+                .sha1("def456")
+                .sha256("789ghi")
+                .build();
+
+        assertTrue(SbomUtils.hasUnusablePurl(artifact));
+    }
+
+    @Test
+    void shouldMatchDistributionArtifactBySha256() {
+        String sha256 = "3fee66fb4d7033c37af6c558f66f5be24f75a68cfa7a331678aa572d3b7db7bc";
+        String filename = "java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi";
+        Artifact artifact = Artifact.builder().id("15865911").filename(filename).sha256(sha256).build();
+
+        AnalyzedDistribution distribution = mock(AnalyzedDistribution.class);
+        when(distribution.getMd5()).thenReturn("2af76023695308aee7586521135a1869");
+        when(distribution.getSha1()).thenReturn("a8970c731d59f82987d29bb5eb1cdf8b14660683");
+        when(distribution.getSha256()).thenReturn(sha256);
+        List<Hash> hashes = SbomUtils.getHashesFromAnalyzedDistribution(distribution);
+
+        assertTrue(SbomUtils.isDistributionArtifact(artifact, filename, Optional.of(hashes)));
+    }
+
+    @Test
+    void shouldNotMatchDistributionArtifactWithDifferentFilename() {
+        String sha256 = "3fee66fb4d7033c37af6c558f66f5be24f75a68cfa7a331678aa572d3b7db7bc";
+        Artifact artifact = Artifact.builder().id("15865911").filename("other-file.jar").sha256(sha256).build();
+
+        AnalyzedDistribution distribution = mock(AnalyzedDistribution.class);
+        when(distribution.getSha256()).thenReturn(sha256);
+        List<Hash> hashes = SbomUtils.getHashesFromAnalyzedDistribution(distribution);
+
+        assertFalse(SbomUtils.isDistributionArtifact(artifact, "distribution.msi", Optional.of(hashes)));
+    }
+
+    @Test
+    void shouldThrowWhenArtifactHasNullFilenameAndNullTargetRepository() {
+        String windowsPurl = "pkg:generic/17517796@null-1.win";
+        Artifact artifact = Artifact.builder()
+                .id("17517796")
+                .purl(windowsPurl)
+                .md5("abc123")
+                .sha1("def456")
+                .sha256("789ghi")
+                .build();
+
+        ApplicationException exception = assertThrows(
+                ApplicationException.class,
+                () -> SbomUtils.createComponent(artifact, Component.Scope.REQUIRED, Type.LIBRARY));
+        assertTrue(exception.getMessage().contains("no target repository and no filename"));
     }
 }
