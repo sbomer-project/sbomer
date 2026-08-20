@@ -273,8 +273,62 @@ public class SbomUtils {
                 break;
             }
             default: {
+                if (artifact.getFilename() == null) {
+                    throw new ApplicationException(
+                            "Cannot create a valid component for artifact '{}': no filename",
+                            artifact.getId());
+                }
                 component.setName(artifact.getFilename());
             }
+        }
+    }
+
+    /**
+     * Checks whether an artifact matches the distribution itself by comparing filename and SHA-256 checksum against the
+     * distribution hashes.
+     */
+    public static boolean isDistributionArtifact(
+            Artifact artifact,
+            String distributionFilename,
+            Optional<List<Hash>> distributionHashes) {
+        if (distributionFilename == null || !distributionFilename.equals(artifact.getFilename())) {
+            return false;
+        }
+        String artifactSha256 = artifact.getSha256();
+        if (artifactSha256 == null || distributionHashes.isEmpty()) {
+            return false;
+        }
+        return distributionHashes.get()
+                .stream()
+                .anyMatch(
+                        h -> Hash.Algorithm.SHA_256.getSpec().equals(h.getAlgorithm())
+                                && artifactSha256.equals(h.getValue()));
+    }
+
+    /**
+     * Checks whether an analyzed artifact has a purl that cannot be used as-is. This applies to artifacts from
+     * deliverable analysis that have no target repository (e.g. Windows binaries), where PNC assigns a purl with the
+     * artifact ID as the name and a nonsensical version.
+     */
+    public static boolean hasUnusablePurl(AnalyzedArtifact analyzedArtifact) {
+        Artifact artifact = analyzedArtifact.getArtifact();
+
+        if (artifact.getTargetRepository() != null || artifact.getFilename() == null) {
+            return false;
+        }
+
+        String purl = artifact.getPurl();
+        if (purl == null) {
+            return true;
+        }
+
+        try {
+            PackageURL parsed = new PackageURL(purl);
+            boolean numericName = parsed.getName().matches("\\d+");
+            boolean nullVersion = parsed.getVersion() != null && parsed.getVersion().contains("null");
+            return numericName || nullVersion;
+        } catch (MalformedPackageURLException e) {
+            return true;
         }
     }
 

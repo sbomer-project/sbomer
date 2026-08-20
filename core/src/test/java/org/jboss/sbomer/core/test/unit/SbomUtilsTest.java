@@ -69,6 +69,7 @@ import org.jboss.pnc.dto.Build;
 import org.jboss.pnc.dto.BuildConfigurationRevision;
 import org.jboss.pnc.dto.Environment;
 import org.jboss.pnc.dto.SCMRepository;
+import org.jboss.pnc.dto.TargetRepository;
 import org.jboss.pnc.dto.response.AnalyzedArtifact;
 import org.jboss.pnc.dto.response.AnalyzedDistribution;
 import org.jboss.pnc.enums.SystemImageType;
@@ -1247,7 +1248,6 @@ class SbomUtilsTest {
 
         Component component = assertDoesNotThrow(
                 () -> SbomUtils.createComponent(analyzedArtifact, Component.Scope.REQUIRED, Type.LIBRARY));
-        assertNotNull(component);
         assertEquals("java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi", component.getName());
     }
 
@@ -1270,25 +1270,40 @@ class SbomUtilsTest {
                 .licenses(Set.of(licenseWithNullId))
                 .build();
 
-        Component component = assertDoesNotThrow(
-                () -> SbomUtils.createComponent(analyzedArtifact, Component.Scope.REQUIRED, Type.LIBRARY));
-        assertNotNull(component);
+        assertDoesNotThrow(() -> SbomUtils.createComponent(analyzedArtifact, Component.Scope.REQUIRED, Type.LIBRARY));
     }
 
     @Test
-    void shouldDetectNumericNameInGarbagePurl() throws MalformedPackageURLException {
+    void shouldDetectUnusablePurlForWindowsArtifact() {
         String garbagePurl = "pkg:generic/17517796@null-1.win?filename=java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi&platforms=x86_64";
-        PackageURL parsed = new PackageURL(garbagePurl);
-        assertTrue(parsed.getName().matches("\\d+"));
-        assertTrue(parsed.getVersion().contains("null"));
+        Artifact artifact = Artifact.builder()
+                .id("17517796")
+                .purl(garbagePurl)
+                .filename("java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi")
+                .md5("abc123")
+                .sha1("def456")
+                .sha256("789ghi")
+                .build();
+        AnalyzedArtifact analyzedArtifact = AnalyzedArtifact.builder().artifact(artifact).build();
+
+        assertTrue(SbomUtils.hasUnusablePurl(analyzedArtifact));
     }
 
     @Test
-    void shouldNotDetectNumericNameInValidPurl() throws MalformedPackageURLException {
+    void shouldNotDetectUnusablePurlForValidArtifact() {
         String validPurl = "pkg:maven/org.apache.logging.log4j/log4j@2.19.0.redhat-00001?type=pom";
-        PackageURL parsed = new PackageURL(validPurl);
-        assertFalse(parsed.getName().matches("\\d+"));
-        assertFalse(parsed.getVersion().contains("null"));
+        Artifact artifact = Artifact.builder()
+                .id("12345")
+                .purl(validPurl)
+                .filename("log4j-2.19.0.redhat-00001.jar")
+                .targetRepository(TargetRepository.refBuilder().id("1").build())
+                .md5("abc123")
+                .sha1("def456")
+                .sha256("789ghi")
+                .build();
+        AnalyzedArtifact analyzedArtifact = AnalyzedArtifact.builder().artifact(artifact).build();
+
+        assertFalse(SbomUtils.hasUnusablePurl(analyzedArtifact));
     }
 
     @Test
@@ -1304,17 +1319,25 @@ class SbomUtilsTest {
     }
 
     @Test
-    void shouldMatchDistributionHashBySha256() {
+    void shouldMatchDistributionArtifactBySha256() {
         String sha256 = "3fee66fb4d7033c37af6c558f66f5be24f75a68cfa7a331678aa572d3b7db7bc";
-        List<Hash> distributionHashes = List.of(
+        String filename = "java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi";
+        Artifact artifact = Artifact.builder().id("15865911").filename(filename).sha256(sha256).build();
+        List<Hash> hashes = List.of(
                 new Hash(Hash.Algorithm.MD5, "2af76023695308aee7586521135a1869"),
                 new Hash(Hash.Algorithm.SHA1, "a8970c731d59f82987d29bb5eb1cdf8b14660683"),
                 new Hash(Hash.Algorithm.SHA_256, sha256));
 
-        boolean match = distributionHashes.stream()
-                .anyMatch(
-                        h -> Hash.Algorithm.SHA_256.getSpec().equals(h.getAlgorithm()) && sha256.equals(h.getValue()));
-        assertTrue(match);
+        assertTrue(SbomUtils.isDistributionArtifact(artifact, filename, Optional.of(hashes)));
+    }
+
+    @Test
+    void shouldNotMatchDistributionArtifactWithDifferentFilename() {
+        String sha256 = "3fee66fb4d7033c37af6c558f66f5be24f75a68cfa7a331678aa572d3b7db7bc";
+        Artifact artifact = Artifact.builder().id("15865911").filename("other-file.jar").sha256(sha256).build();
+        List<Hash> hashes = List.of(new Hash(Hash.Algorithm.SHA_256, sha256));
+
+        assertFalse(SbomUtils.isDistributionArtifact(artifact, "distribution.msi", Optional.of(hashes)));
     }
 
     @Test

@@ -52,7 +52,6 @@ import org.cyclonedx.model.Hash;
 import org.jboss.pnc.dto.DeliverableAnalyzerOperation;
 import org.jboss.pnc.dto.ProductMilestone;
 import org.jboss.pnc.dto.ProductVersion;
-import org.jboss.pnc.dto.Artifact;
 import org.jboss.pnc.dto.response.AnalyzedArtifact;
 import org.jboss.sbomer.cli.feature.sbom.adjuster.PncOperationAdjuster;
 import org.jboss.sbomer.cli.feature.sbom.processor.WorkaroundMissingNpmDependencies;
@@ -231,8 +230,8 @@ public class CycloneDxGenerateOperationCommand extends AbstractGenerateOperation
         WorkaroundMissingNpmDependencies workaround = new WorkaroundMissingNpmDependencies(pncService);
 
         for (AnalyzedArtifact artifact : artifactsToManifest) {
-            if (isDistributionArtifact(artifact.getArtifact(), fileName, distributionHashes)
-                    && hasUnusablePurl(artifact)) {
+            if (SbomUtils.isDistributionArtifact(artifact.getArtifact(), fileName, distributionHashes)
+                    && SbomUtils.hasUnusablePurl(artifact)) {
                 log.info(
                         "Skipping artifact '{}' — matches the distribution component by filename and checksum",
                         artifact.getArtifact().getFilename());
@@ -241,7 +240,7 @@ public class CycloneDxGenerateOperationCommand extends AbstractGenerateOperation
 
             String artifactPurl = artifact.getArtifact().getPurl();
 
-            if (hasUnusablePurl(artifact)) {
+            if (SbomUtils.hasUnusablePurl(artifact)) {
                 String rebuilt = createGenericPurl(
                         artifact.getArtifact().getFilename(),
                         Optional.ofNullable(artifact.getArtifact().getSha256()));
@@ -351,55 +350,6 @@ public class CycloneDxGenerateOperationCommand extends AbstractGenerateOperation
             }
         } catch (KojiClientException e) {
             log.error("Failed to retrieve brew build.", e);
-        }
-    }
-
-    /**
-     * Checks whether an artifact matches the distribution itself by comparing filename and SHA-256 checksum against the
-     * distribution hashes.
-     */
-    private boolean isDistributionArtifact(
-            Artifact artifact,
-            String distributionFilename,
-            Optional<List<Hash>> distributionHashes) {
-        if (distributionFilename == null || !distributionFilename.equals(artifact.getFilename())) {
-            return false;
-        }
-        String artifactSha256 = artifact.getSha256();
-        if (artifactSha256 == null || distributionHashes.isEmpty()) {
-            return false;
-        }
-        return distributionHashes.get()
-                .stream()
-                .anyMatch(
-                        h -> Hash.Algorithm.SHA_256.getSpec().equals(h.getAlgorithm())
-                                && artifactSha256.equals(h.getValue()));
-    }
-
-    /**
-     * Checks whether an analyzed artifact has a purl that cannot be used as-is. This applies to artifacts from
-     * deliverable analysis that have no target repository (e.g. Windows binaries), where PNC assigns a purl with the
-     * artifact ID as the name and a nonsensical version.
-     */
-    private boolean hasUnusablePurl(AnalyzedArtifact analyzedArtifact) {
-        Artifact artifact = analyzedArtifact.getArtifact();
-
-        if (artifact.getTargetRepository() != null || artifact.getFilename() == null) {
-            return false;
-        }
-
-        String purl = artifact.getPurl();
-        if (purl == null) {
-            return true;
-        }
-
-        try {
-            PackageURL parsed = new PackageURL(purl);
-            boolean numericName = parsed.getName().matches("\\d+");
-            boolean nullVersion = parsed.getVersion() != null && parsed.getVersion().contains("null");
-            return numericName || nullVersion;
-        } catch (MalformedPackageURLException e) {
-            return true;
         }
     }
 
