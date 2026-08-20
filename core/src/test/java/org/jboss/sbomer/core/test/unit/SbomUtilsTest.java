@@ -1272,4 +1272,62 @@ class SbomUtilsTest {
                 () -> SbomUtils.createComponent(analyzedArtifact, Component.Scope.REQUIRED, Type.LIBRARY));
         assertNotNull(component);
     }
+
+    @Test
+    void shouldDetectNumericNameInGarbagePurl() throws MalformedPackageURLException {
+        String garbagePurl = "pkg:generic/17517796@null-1.win?filename=java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi&platforms=x86_64";
+        PackageURL parsed = new PackageURL(garbagePurl);
+        assertTrue(parsed.getName().matches("\\d+"));
+        assertTrue(parsed.getVersion().contains("null"));
+    }
+
+    @Test
+    void shouldNotDetectNumericNameInValidPurl() throws MalformedPackageURLException {
+        String validPurl = "pkg:maven/org.apache.logging.log4j/log4j@2.19.0.redhat-00001?type=pom";
+        PackageURL parsed = new PackageURL(validPurl);
+        assertFalse(parsed.getName().matches("\\d+"));
+        assertFalse(parsed.getVersion().contains("null"));
+    }
+
+    @Test
+    void shouldMatchHashAlgorithmWithGetSpec() {
+        Hash hash = new Hash(Hash.Algorithm.SHA_256, "abc123");
+        assertEquals(Hash.Algorithm.SHA_256.getSpec(), hash.getAlgorithm());
+    }
+
+    @Test
+    void shouldNotMatchHashAlgorithmWithToString() {
+        Hash hash = new Hash(Hash.Algorithm.SHA_256, "abc123");
+        assertFalse(Hash.Algorithm.SHA_256.toString().equals(hash.getAlgorithm()));
+    }
+
+    @Test
+    void shouldMatchDistributionHashBySha256() {
+        String sha256 = "3fee66fb4d7033c37af6c558f66f5be24f75a68cfa7a331678aa572d3b7db7bc";
+        List<Hash> distributionHashes = List.of(
+                new Hash(Hash.Algorithm.MD5, "2af76023695308aee7586521135a1869"),
+                new Hash(Hash.Algorithm.SHA1, "a8970c731d59f82987d29bb5eb1cdf8b14660683"),
+                new Hash(Hash.Algorithm.SHA_256, sha256));
+
+        boolean match = distributionHashes.stream()
+                .anyMatch(
+                        h -> Hash.Algorithm.SHA_256.getSpec().equals(h.getAlgorithm()) && sha256.equals(h.getValue()));
+        assertTrue(match);
+    }
+
+    @Test
+    void shouldCreateComponentFromArtifactWithNullFilenameAndNullTargetRepository() {
+        String windowsPurl = "pkg:generic/17517796@null-1.win";
+        Artifact artifact = Artifact.builder()
+                .id("17517796")
+                .purl(windowsPurl)
+                .md5("abc123")
+                .sha1("def456")
+                .sha256("789ghi")
+                .build();
+
+        Component component = assertDoesNotThrow(
+                () -> SbomUtils.createComponent(artifact, Component.Scope.REQUIRED, Type.LIBRARY));
+        assertEquals("", component.getName());
+    }
 }

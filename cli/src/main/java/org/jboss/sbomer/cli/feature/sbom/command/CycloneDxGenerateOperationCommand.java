@@ -52,6 +52,7 @@ import org.cyclonedx.model.Hash;
 import org.jboss.pnc.dto.DeliverableAnalyzerOperation;
 import org.jboss.pnc.dto.ProductMilestone;
 import org.jboss.pnc.dto.ProductVersion;
+import org.jboss.pnc.dto.Artifact;
 import org.jboss.pnc.dto.response.AnalyzedArtifact;
 import org.jboss.sbomer.cli.feature.sbom.adjuster.PncOperationAdjuster;
 import org.jboss.sbomer.cli.feature.sbom.processor.WorkaroundMissingNpmDependencies;
@@ -180,7 +181,7 @@ public class CycloneDxGenerateOperationCommand extends AbstractGenerateOperation
 
             distributionSha256 = distributionHashes.stream()
                     .flatMap(List::stream)
-                    .filter(hash -> hash.getAlgorithm() == Hash.Algorithm.SHA_256.toString())
+                    .filter(hash -> Hash.Algorithm.SHA_256.getSpec().equals(hash.getAlgorithm()))
                     .map(Hash::getValue)
                     .findFirst();
         }
@@ -230,7 +231,8 @@ public class CycloneDxGenerateOperationCommand extends AbstractGenerateOperation
         WorkaroundMissingNpmDependencies workaround = new WorkaroundMissingNpmDependencies(pncService);
 
         for (AnalyzedArtifact artifact : artifactsToManifest) {
-            if (isDistributionArtifact(artifact.getArtifact(), fileName, distributionHashes)) {
+            if (isDistributionArtifact(artifact.getArtifact(), fileName, distributionHashes)
+                    && hasUnusablePurl(artifact)) {
                 log.info(
                         "Skipping artifact '{}' — matches the distribution component by filename and checksum",
                         artifact.getArtifact().getFilename());
@@ -353,12 +355,11 @@ public class CycloneDxGenerateOperationCommand extends AbstractGenerateOperation
     }
 
     /**
-     * Checks whether an analyzed artifact has a purl that cannot be used as-is. This applies to artifacts from
-     * deliverable analysis that have no target repository (e.g. Windows binaries), where PNC assigns a purl with the
-     * artifact ID as the name and a nonsensical version.
+     * Checks whether an artifact matches the distribution itself by comparing filename and SHA-256 checksum against the
+     * distribution hashes.
      */
     private boolean isDistributionArtifact(
-            org.jboss.pnc.dto.Artifact artifact,
+            Artifact artifact,
             String distributionFilename,
             Optional<List<Hash>> distributionHashes) {
         if (distributionFilename == null || !distributionFilename.equals(artifact.getFilename())) {
@@ -375,8 +376,13 @@ public class CycloneDxGenerateOperationCommand extends AbstractGenerateOperation
                                 && artifactSha256.equals(h.getValue()));
     }
 
+    /**
+     * Checks whether an analyzed artifact has a purl that cannot be used as-is. This applies to artifacts from
+     * deliverable analysis that have no target repository (e.g. Windows binaries), where PNC assigns a purl with the
+     * artifact ID as the name and a nonsensical version.
+     */
     private boolean hasUnusablePurl(AnalyzedArtifact analyzedArtifact) {
-        org.jboss.pnc.dto.Artifact artifact = analyzedArtifact.getArtifact();
+        Artifact artifact = analyzedArtifact.getArtifact();
 
         if (artifact.getTargetRepository() != null || artifact.getFilename() == null) {
             return false;

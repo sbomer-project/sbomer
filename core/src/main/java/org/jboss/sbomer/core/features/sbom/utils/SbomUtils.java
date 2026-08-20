@@ -220,7 +220,7 @@ public class SbomUtils {
 
     private static void setCoordinates(Component component, Artifact artifact) {
         if (artifact.getTargetRepository() == null) {
-            component.setName(artifact.getFilename());
+            component.setName(Objects.toString(artifact.getFilename(), ""));
             return;
         }
 
@@ -228,7 +228,7 @@ public class SbomUtils {
             case NPM: {
                 NpmPackageRef coordinates = ArtifactUtil.parseNPMCoordinates(artifact);
                 if (coordinates == null) {
-                    component.setName(artifact.getFilename());
+                    component.setName(Objects.toString(artifact.getFilename(), ""));
                     break;
                 }
                 String[] scopeName = coordinates.getName().split("/");
@@ -249,7 +249,7 @@ public class SbomUtils {
             case MAVEN: {
                 SimpleArtifactRef coordinates = ArtifactUtil.parseMavenCoordinates(artifact);
                 if (coordinates == null) {
-                    component.setName(artifact.getFilename());
+                    component.setName(Objects.toString(artifact.getFilename(), ""));
                     break;
                 }
                 component.setGroup(coordinates.getGroupId());
@@ -412,11 +412,7 @@ public class SbomUtils {
 
         Evidence evidence = new Evidence();
         LicenseChoice licenseChoice = new LicenseChoice();
-        List<String> spdxLicenseIds = licenseInfos.stream()
-                .map(LicenseInfo::getSpdxLicenseId)
-                .filter(Objects::nonNull)
-                .filter(spdxLicenseId -> !SpdxLicenseUtils.isUnknownLicenseId(spdxLicenseId))
-                .toList();
+        List<String> spdxLicenseIds = licenseInfos.stream().map(LicenseInfo::getSpdxLicenseId).toList();
 
         if (SpdxLicenseUtils.containsExpression(spdxLicenseIds)) {
             Expression expression = new Expression();
@@ -429,38 +425,33 @@ public class SbomUtils {
             return;
         }
 
-        licenseChoice.setLicenses(
-                licenseInfos.stream()
-                        .filter(licenseInfo -> licenseInfo.getSpdxLicenseId() != null)
-                        .filter(licenseInfo -> !SpdxLicenseUtils.isUnknownLicenseId(licenseInfo.getSpdxLicenseId()))
-                        .map(licenseInfo -> {
-                            License license = new License();
-                            license.setId(licenseInfo.getSpdxLicenseId());
-                            license.setAcknowledgement(EVIDENCE_LICENSE_ACKNOWLEDGEMENT);
-                            String sourceUrl = licenseInfo.getSourceUrl();
+        licenseChoice.setLicenses(licenseInfos.stream().map(licenseInfo -> {
+            License license = new License();
+            license.setId(licenseInfo.getSpdxLicenseId());
+            license.setAcknowledgement(EVIDENCE_LICENSE_ACKNOWLEDGEMENT);
+            String sourceUrl = licenseInfo.getSourceUrl();
 
-                            if (!StringUtils.isBlank(sourceUrl)) {
-                                Property sourceProperty = new Property();
-                                sourceProperty.setName("sourceUrl");
-                                sourceProperty.setValue(sourceUrl);
-                                license.setProperties(List.of(sourceProperty));
-                            }
+            if (!StringUtils.isBlank(sourceUrl)) {
+                Property sourceProperty = new Property();
+                sourceProperty.setName("sourceUrl");
+                sourceProperty.setValue(sourceUrl);
+                license.setProperties(List.of(sourceProperty));
+            }
 
-                            String url = licenseInfo.getUrl();
-                            Optional<URI> optionalURI = getNormalizedUrl(url);
+            String url = licenseInfo.getUrl();
+            Optional<URI> optionalURI = getNormalizedUrl(url);
 
-                            if (optionalURI.isPresent()) {
-                                URI uri = optionalURI.get();
-                                String normalizedUri = uri.toASCIIString();
+            if (optionalURI.isPresent()) {
+                URI uri = optionalURI.get();
+                String normalizedUri = uri.toASCIIString();
 
-                                if (uri.isAbsolute()) {
-                                    license.setUrl(normalizedUri);
-                                }
-                            }
+                if (uri.isAbsolute()) {
+                    license.setUrl(normalizedUri);
+                }
+            }
 
-                            return license;
-                        })
-                        .toList());
+            return license;
+        }).toList());
         evidence.setLicenses(licenseChoice);
         component.setEvidence(evidence);
     }
