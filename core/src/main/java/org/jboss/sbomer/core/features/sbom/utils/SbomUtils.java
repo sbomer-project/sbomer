@@ -220,7 +220,12 @@ public class SbomUtils {
 
     private static void setCoordinates(Component component, Artifact artifact) {
         if (artifact.getTargetRepository() == null) {
-            component.setName(Objects.toString(artifact.getFilename(), ""));
+            if (artifact.getFilename() == null) {
+                throw new ApplicationException(
+                        "Cannot create a valid component for artifact '{}': no target repository and no filename",
+                        artifact.getId());
+            }
+            component.setName(artifact.getFilename());
             return;
         }
 
@@ -228,7 +233,12 @@ public class SbomUtils {
             case NPM: {
                 NpmPackageRef coordinates = ArtifactUtil.parseNPMCoordinates(artifact);
                 if (coordinates == null) {
-                    component.setName(Objects.toString(artifact.getFilename(), ""));
+                    if (artifact.getFilename() == null) {
+                        throw new ApplicationException(
+                                "Cannot create a valid component for artifact '{}': unparseable NPM coordinates and no filename",
+                                artifact.getId());
+                    }
+                    component.setName(artifact.getFilename());
                     break;
                 }
                 String[] scopeName = coordinates.getName().split("/");
@@ -249,7 +259,12 @@ public class SbomUtils {
             case MAVEN: {
                 SimpleArtifactRef coordinates = ArtifactUtil.parseMavenCoordinates(artifact);
                 if (coordinates == null) {
-                    component.setName(Objects.toString(artifact.getFilename(), ""));
+                    if (artifact.getFilename() == null) {
+                        throw new ApplicationException(
+                                "Cannot create a valid component for artifact '{}': unparseable Maven coordinates and no filename",
+                                artifact.getId());
+                    }
+                    component.setName(artifact.getFilename());
                     break;
                 }
                 component.setGroup(coordinates.getGroupId());

@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -71,6 +72,7 @@ import org.jboss.pnc.dto.SCMRepository;
 import org.jboss.pnc.dto.response.AnalyzedArtifact;
 import org.jboss.pnc.dto.response.AnalyzedDistribution;
 import org.jboss.pnc.enums.SystemImageType;
+import org.jboss.sbomer.core.errors.ApplicationException;
 import org.jboss.sbomer.core.features.sbom.Constants;
 import org.jboss.sbomer.core.features.sbom.utils.SbomUtils;
 import org.jboss.sbomer.core.features.sbom.utils.VcsUrl;
@@ -1316,7 +1318,7 @@ class SbomUtilsTest {
     }
 
     @Test
-    void shouldCreateComponentFromArtifactWithNullFilenameAndNullTargetRepository() {
+    void shouldThrowWhenArtifactHasNullFilenameAndNullTargetRepository() {
         String windowsPurl = "pkg:generic/17517796@null-1.win";
         Artifact artifact = Artifact.builder()
                 .id("17517796")
@@ -1326,8 +1328,9 @@ class SbomUtilsTest {
                 .sha256("789ghi")
                 .build();
 
-        Component component = assertDoesNotThrow(
+        ApplicationException exception = assertThrows(
+                ApplicationException.class,
                 () -> SbomUtils.createComponent(artifact, Component.Scope.REQUIRED, Type.LIBRARY));
-        assertEquals("", component.getName());
+        assertTrue(exception.getMessage().contains("no target repository and no filename"));
     }
 }
