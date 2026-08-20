@@ -231,7 +231,7 @@ public class CycloneDxGenerateOperationCommand extends AbstractGenerateOperation
 
         for (AnalyzedArtifact artifact : artifactsToManifest) {
             if (SbomUtils.isDistributionArtifact(artifact.getArtifact(), fileName, distributionHashes)
-                    && SbomUtils.hasUnusablePurl(artifact)) {
+                    && SbomUtils.hasUnusablePurl(artifact.getArtifact())) {
                 log.info(
                         "Skipping artifact '{}' — matches the distribution component by filename and checksum",
                         artifact.getArtifact().getFilename());
@@ -240,7 +240,7 @@ public class CycloneDxGenerateOperationCommand extends AbstractGenerateOperation
 
             String artifactPurl = artifact.getArtifact().getPurl();
 
-            if (SbomUtils.hasUnusablePurl(artifact)) {
+            if (SbomUtils.hasUnusablePurl(artifact.getArtifact())) {
                 String rebuilt = createGenericPurl(
                         artifact.getArtifact().getFilename(),
                         Optional.ofNullable(artifact.getArtifact().getSha256()));

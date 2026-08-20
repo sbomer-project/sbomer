@@ -612,7 +612,7 @@ class SbomUtilsTest {
 
         distributionSha256 = distributionHashes.stream()
                 .flatMap(List::stream)
-                .filter(hash -> hash.getAlgorithm() == Hash.Algorithm.SHA_256.toString())
+                .filter(hash -> Hash.Algorithm.SHA_256.getSpec().equals(hash.getAlgorithm()))
                 .map(Hash::getValue)
                 .findFirst();
 
@@ -1284,9 +1284,8 @@ class SbomUtilsTest {
                 .sha1("def456")
                 .sha256("789ghi")
                 .build();
-        AnalyzedArtifact analyzedArtifact = AnalyzedArtifact.builder().artifact(artifact).build();
 
-        assertTrue(SbomUtils.hasUnusablePurl(analyzedArtifact));
+        assertTrue(SbomUtils.hasUnusablePurl(artifact));
     }
 
     @Test
@@ -1301,21 +1300,22 @@ class SbomUtilsTest {
                 .sha1("def456")
                 .sha256("789ghi")
                 .build();
-        AnalyzedArtifact analyzedArtifact = AnalyzedArtifact.builder().artifact(artifact).build();
 
-        assertFalse(SbomUtils.hasUnusablePurl(analyzedArtifact));
+        assertFalse(SbomUtils.hasUnusablePurl(artifact));
     }
 
     @Test
-    void shouldMatchHashAlgorithmWithGetSpec() {
-        Hash hash = new Hash(Hash.Algorithm.SHA_256, "abc123");
-        assertEquals(Hash.Algorithm.SHA_256.getSpec(), hash.getAlgorithm());
-    }
+    void shouldDetectUnusablePurlWithNullTargetRepository() {
+        Artifact artifact = Artifact.builder()
+                .id("99999")
+                .purl("pkg:generic/99999@null-1.win")
+                .filename("some-file.msi")
+                .md5("abc123")
+                .sha1("def456")
+                .sha256("789ghi")
+                .build();
 
-    @Test
-    void shouldNotMatchHashAlgorithmWithToString() {
-        Hash hash = new Hash(Hash.Algorithm.SHA_256, "abc123");
-        assertFalse(Hash.Algorithm.SHA_256.toString().equals(hash.getAlgorithm()));
+        assertTrue(SbomUtils.hasUnusablePurl(artifact));
     }
 
     @Test
@@ -1323,10 +1323,12 @@ class SbomUtilsTest {
         String sha256 = "3fee66fb4d7033c37af6c558f66f5be24f75a68cfa7a331678aa572d3b7db7bc";
         String filename = "java-17-openjdk-17.0.20.0.8-1.win.jdk.x86_64.msi";
         Artifact artifact = Artifact.builder().id("15865911").filename(filename).sha256(sha256).build();
-        List<Hash> hashes = List.of(
-                new Hash(Hash.Algorithm.MD5, "2af76023695308aee7586521135a1869"),
-                new Hash(Hash.Algorithm.SHA1, "a8970c731d59f82987d29bb5eb1cdf8b14660683"),
-                new Hash(Hash.Algorithm.SHA_256, sha256));
+
+        AnalyzedDistribution distribution = mock(AnalyzedDistribution.class);
+        when(distribution.getMd5()).thenReturn("2af76023695308aee7586521135a1869");
+        when(distribution.getSha1()).thenReturn("a8970c731d59f82987d29bb5eb1cdf8b14660683");
+        when(distribution.getSha256()).thenReturn(sha256);
+        List<Hash> hashes = SbomUtils.getHashesFromAnalyzedDistribution(distribution);
 
         assertTrue(SbomUtils.isDistributionArtifact(artifact, filename, Optional.of(hashes)));
     }
@@ -1335,7 +1337,10 @@ class SbomUtilsTest {
     void shouldNotMatchDistributionArtifactWithDifferentFilename() {
         String sha256 = "3fee66fb4d7033c37af6c558f66f5be24f75a68cfa7a331678aa572d3b7db7bc";
         Artifact artifact = Artifact.builder().id("15865911").filename("other-file.jar").sha256(sha256).build();
-        List<Hash> hashes = List.of(new Hash(Hash.Algorithm.SHA_256, sha256));
+
+        AnalyzedDistribution distribution = mock(AnalyzedDistribution.class);
+        when(distribution.getSha256()).thenReturn(sha256);
+        List<Hash> hashes = SbomUtils.getHashesFromAnalyzedDistribution(distribution);
 
         assertFalse(SbomUtils.isDistributionArtifact(artifact, "distribution.msi", Optional.of(hashes)));
     }

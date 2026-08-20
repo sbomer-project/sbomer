@@ -310,10 +310,8 @@ public class SbomUtils {
      * deliverable analysis that have no target repository (e.g. Windows binaries), where PNC assigns a purl with the
      * artifact ID as the name and a nonsensical version.
      */
-    public static boolean hasUnusablePurl(AnalyzedArtifact analyzedArtifact) {
-        Artifact artifact = analyzedArtifact.getArtifact();
-
-        if (artifact.getTargetRepository() != null || artifact.getFilename() == null) {
+    public static boolean hasUnusablePurl(Artifact artifact) {
+        if (artifact.getTargetRepository() != null) {
             return false;
         }
 
