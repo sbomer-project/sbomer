@@ -27,6 +27,7 @@ import java.util.List;
 
 import org.hamcrest.CoreMatchers;
 import org.jboss.sbomer.test.e2e.E2EStageBase;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -96,6 +97,7 @@ class StageGenerationRequestIT extends E2EStageBase {
     }
 
     @Test
+    @Disabled("Temporarily disabled due to upstream service issue with Gradle 4 build BDW7L6D3DUQAA")
     @Execution(ExecutionMode.CONCURRENT)
     void testSuccessfulGenerationGradle4Build() throws IOException {
         String requestBody = Files.readString(sbomPath("pnc-build-" + GRADLE_4_BUILD_ID + ".json"));
