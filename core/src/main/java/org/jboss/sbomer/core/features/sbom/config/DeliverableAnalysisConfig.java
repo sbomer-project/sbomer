@@ -19,6 +19,7 @@ package org.jboss.sbomer.core.features.sbom.config;
 
 import java.util.List;
 
+import jakarta.validation.constraints.Size;
 import org.jboss.sbomer.core.features.sbom.config.runtime.ErrataConfig;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -31,6 +32,7 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 import lombok.extern.jackson.Jacksonized;
+
 
 /**
  * SBOMer configuration file to trigger a new PNC deliverable analysis.
@@ -60,6 +62,7 @@ public class DeliverableAnalysisConfig extends Config {
     /**
      * Deliverables entries for the given operation.
      */
+    @Size(min = 1)
     List<String> deliverableUrls;
 
     @JsonIgnore
