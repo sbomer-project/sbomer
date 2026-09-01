@@ -19,12 +19,13 @@
 
 # List all available Temurin Java versions for a given major release.
 function available_java_versions() {
-    sdk list java | grep -E -i ".*\|.*\|.*\|.*\|.*\| ${1}\.0\..*-tem" | awk -F\| '{ print $6 }' | sed 's/^[ \t]*//'
+    local version=${1}
+    curl -s "https://api.sdkman.io/2/candidates/java/Linuxx64/versions/all" | tr ',' '\n' | grep -- '-tem$' | grep "^${version}\."
 }
 
 # Find the latest version of Temurin Java for a given major release.
 function latest_java_version() {
-    available_java_versions ${1} | head -1 | xargs
+    available_java_versions "${1}" | sort -V | tail -n 1
 }
 
 function retry() {
@@ -68,7 +69,15 @@ function install_java() {
 }
 
 function install_major_java() {
-    java_version=$(latest_java_version ${version})
+    local version=${1}
+    local java_version
+    java_version=$(latest_java_version "${version}")
+
+    if [[ -z "${java_version}" ]]; then
+        echo "Could not find a Temurin release for Java ${version}" >&2
+        return 1
+    fi
+
     install_java "${java_version}"
 }
 
