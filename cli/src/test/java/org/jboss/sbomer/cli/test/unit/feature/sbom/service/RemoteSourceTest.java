@@ -28,10 +28,10 @@ import java.util.List;
 
 import org.jboss.pnc.build.finder.koji.ClientSession;
 import org.jboss.sbomer.cli.feature.sbom.client.KojiDownloadClient;
-import org.jboss.sbomer.cli.feature.sbom.client.RemoteSource;
 import org.jboss.sbomer.cli.feature.sbom.service.KojiService;
 import org.jboss.sbomer.cli.test.utils.KojiBuildInfoFactory;
 import org.jboss.sbomer.core.errors.ApplicationException;
+import org.jboss.sbomer.core.features.sbom.koji.RemoteSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

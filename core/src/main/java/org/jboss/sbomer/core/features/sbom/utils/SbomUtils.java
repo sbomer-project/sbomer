@@ -112,6 +112,7 @@ import org.jboss.sbomer.core.features.sbom.config.OperationConfig;
 import org.jboss.sbomer.core.features.sbom.config.PncBuildConfig;
 import org.jboss.sbomer.core.features.sbom.config.runtime.ProductConfig;
 import org.jboss.sbomer.core.features.sbom.config.runtime.RedHatProductProcessorConfig;
+import org.jboss.sbomer.core.features.sbom.koji.RemoteSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -531,10 +532,10 @@ public class SbomUtils {
         }
 
         // Use our pre-defined Algo to getter mapper here (DIST_HASH_DEFINTIONS)
-        for (HashAlgorithmMapping m : DIST_HASH_DEFINITIONS) {
+        for (HashAlgorithmMapping<AnalyzedDistribution> m : DIST_HASH_DEFINITIONS) {
 
-            // eg. Call analyzedArtifact.getDistribution.getSha256 and return a cdx Hash of type SHA_256
-            String hashValue = (String) m.getter.apply(analyzedDistribution);
+            // e.g., call analyzedArtifact.getDistribution.getSha256 and return a cdx Hash of type SHA_256
+            String hashValue = m.getter.apply(analyzedDistribution);
 
             if (Objects.nonNull(hashValue)) {
                 hashes.add(new Hash(m.algorithm, hashValue));
@@ -1892,24 +1893,25 @@ public class SbomUtils {
      *
      * @param sourcesMetadataPath path to the sources metadata
      */
-    public static Set<Map> readCachitoDependencies(Path sourcesMetadataPath) {
-        Set<Map> cachitoDependencies = new HashSet<>();
+    public static Set<RemoteSource.Dependency> readCachitoDependencies(Path sourcesMetadataPath) {
+        Set<RemoteSource.Dependency> cachitoDependencies = new HashSet<>();
         try {
-            Map sourcesMetadata = ObjectMapperProvider.json().readValue(sourcesMetadataPath.toFile(), Map.class);
-            List<Map> rootDependencies = (List<Map>) sourcesMetadata.get("dependencies");
+            RemoteSource sourcesMetadata = ObjectMapperProvider.json()
+                    .readValue(sourcesMetadataPath.toFile(), RemoteSource.class);
+            List<RemoteSource.Dependency> rootDependencies = sourcesMetadata.getDependencies();
             if (isNotEmpty(rootDependencies)) {
                 log.debug("Reading Cachito root dependencies from sources metadata");
                 cachitoDependencies.addAll(rootDependencies);
             }
-            List<Map> packages = (List<Map>) sourcesMetadata.get("packages");
+            List<RemoteSource.Package> packages = sourcesMetadata.getPackages();
             if (packages != null) {
-                for (Map pkg : packages) {
-                    if (pkg != null && !pkg.isEmpty()) {
-                        List<Map> dependencies = (List<Map>) pkg.get("dependencies");
+                for (RemoteSource.Package pkg : packages) {
+                    if (pkg != null) {
+                        List<RemoteSource.Dependency> dependencies = pkg.getDependencies();
                         if (dependencies != null) {
                             log.debug(
                                     "Reading Cachito package dependencies from sources metadata for {}",
-                                    pkg.get("name"));
+                                    pkg.getName());
                             cachitoDependencies.addAll(dependencies);
                         }
                     }
@@ -1931,7 +1933,7 @@ public class SbomUtils {
     public static void addGolangStandardLibraryFeatures(
             Bom bom,
             Component standardLibraryComponent,
-            Set<Map> cachitoDependencies) {
+            Set<RemoteSource.Dependency> cachitoDependencies) {
         // Pointless proceeding unless there are Cachito dependencies
         if (isNotEmpty(cachitoDependencies)) {
             List<Component> components = bom.getComponents();
@@ -1940,10 +1942,10 @@ public class SbomUtils {
                 mergedComponents.put(component.getBomRef(), component);
             }
             components.clear();
-            for (Map dep : cachitoDependencies) {
+            for (RemoteSource.Dependency dep : cachitoDependencies) {
                 // Only standard library features have missing version
-                if (dep.get("version") == null && dep.get("type").equals("go-package")) {
-                    String name = (String) dep.get("name");
+                if (dep.getVersion() == null && "go-package".equals(dep.getType())) {
+                    String name = dep.getName();
                     String version = standardLibraryComponent.getVersion();
                     String purl = String.format("pkg:%s/%s@%s", PackageURL.StandardTypes.GOLANG, name, version);
                     if (mergedComponents.containsKey(purl)) {
@@ -1973,7 +1975,7 @@ public class SbomUtils {
      * Set the version of a generic PURL by extracting it from the filename.
      *
      * @param c the component to update
-     * @param updateComponentPurl if true, also update the component.purl field (controlled by feature flag)
+     * @param updateComponentPurl if true, also update the {@code component.purl} field (controlled by feature flag)
      */
     public static void setPurlVersionFromGeneric(Component c, boolean updateComponentPurl) {
         setPurlVersionFromGeneric(null, c, updateComponentPurl);
@@ -1984,7 +1986,7 @@ public class SbomUtils {
      *
      * @param bom the BOM containing the component (optional, for dependency updates)
      * @param c the component to update
-     * @param updateComponentPurl if true, also update the component.purl field (controlled by feature flag)
+     * @param updateComponentPurl if true, also update the {@code component.purl} field (controlled by feature flag)
      */
     public static void setPurlVersionFromGeneric(Bom bom, Component c, boolean updateComponentPurl) {
         // Grab toplevel and evidence purls
@@ -2018,7 +2020,7 @@ public class SbomUtils {
                 .filter(purl -> purl.getVersion() == null || purl.getVersion().isBlank())
                 .findFirst();
 
-        // We cant't do anything here, early exit
+        // We can't do anything here, early exit
         if (topLevelPurl.isEmpty() && evidencePurl.isEmpty()) {
             log.warn("Cannot find a valid versionless purl in component: {}", c.getBomRef());
             return;
@@ -2039,18 +2041,14 @@ public class SbomUtils {
             purlToModify = evidencePurl.or(() -> topLevelPurl);
         }
 
-        if (purlToModify.isEmpty()) {
-            return;
-        }
-
         // Find and replace in evidence.identities
         try {
             GenericPurlWrapperUtil newEvidencePurl = new GenericPurlWrapperUtil(purlToModify.get());
-            // We couldn't get a version, dont do anything
+            // We couldn't get a version, don't do anything
             if (newEvidencePurl.getVersionedPurl() == null)
                 return;
 
-            // Build our new Identity Object and either append or replace
+            // Build our new Identity object and either append or replace
             appendOrReplaceIdentity(c, newEvidencePurl.getPackageURL(), newEvidencePurl.getAsIdentity(), true);
 
             // If feature flag is enabled and the top-level component purl is a generic purl without version,
@@ -2141,12 +2139,12 @@ public class SbomUtils {
                 if (Field.PURL.equals(identity.getField()) && identity.getConcludedValue() != null) {
                     try {
                         isMatch = new PackageURL(identity.getConcludedValue()).equals(originalPurl);
-                    } catch (MalformedPackageURLException e) {
-                        isMatch = false;
+                    } catch (MalformedPackageURLException ignored) {
+
                     }
                 }
                 return isMatch ? newIdentity : identity;
-            }).collect(Collectors.toList());
+            }).toList();
 
             updatedIdentities = new ArrayList<>(mappedList);
             // If there is no existing match then append it anyway
