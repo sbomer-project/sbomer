@@ -139,8 +139,8 @@ class ErrorResourcesTest {
                 .body("error", CoreMatchers.is("Bad Request"))
                 .body(
                         "message",
-                        CoreMatchers.is(
-                                "An error occurred while parsing the RSQL query, please make sure you use correct syntax"))
+                        CoreMatchers.startsWith(
+                                "An error occurred while parsing the RSQL query, please make sure you use correct syntax: "))
                 .body("$", Matchers.not(Matchers.hasKey("errors")));
     }
 
@@ -179,8 +179,8 @@ class ErrorResourcesTest {
                 .body("error", CoreMatchers.is("Bad Request"))
                 .body(
                         "message",
-                        CoreMatchers.is(
-                                "An error occurred while parsing the RSQL query, please make sure you use correct syntax"))
+                        CoreMatchers.startsWith(
+                                "An error occurred while parsing the RSQL query, please make sure you use correct syntax: "))
                 .body("$", Matchers.not(Matchers.hasKey("errors")));
     }
 }

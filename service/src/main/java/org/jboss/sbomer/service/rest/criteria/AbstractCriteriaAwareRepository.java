@@ -17,13 +17,9 @@
  */
 package org.jboss.sbomer.service.rest.criteria;
 
-import static org.jboss.sbomer.service.rest.criteria.predicate.CustomizedPredicateBuilderStrategy.WILDCARD_CHAR;
-
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.jboss.pnc.common.Strings;
 import org.jboss.sbomer.service.rest.criteria.predicate.CustomPredicateSortBuilder;
@@ -51,8 +47,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Transactional
 public abstract class AbstractCriteriaAwareRepository<T> implements PanacheRepositoryBase<T, String> {
-
-    private static final Pattern likePattern = Pattern.compile("(%[a-zA-Z0-9\\s]+%)");
 
     protected static final RSQLParser predicateParser;
     protected static final RSQLParser sortParser;
@@ -109,17 +103,7 @@ public abstract class AbstractCriteriaAwareRepository<T> implements PanacheRepos
         criteriaBuilder = entityManagerAdapter.getCriteriaBuilder();
     }
 
-    private String preprocessRSQL(String rsql) {
-        String result = rsql;
-        Matcher matcher = likePattern.matcher(rsql);
-        while (matcher.find()) {
-            result = rsql.replaceAll(matcher.group(1), matcher.group(1).replaceAll("\\s", WILDCARD_CHAR));
-        }
-        return result;
-    }
-
     protected <X> CriteriaQuery<X> handleRsql(CriteriaQuery<X> query, Root<T> root, String rsqlQuery) {
-
         if (Strings.isEmpty(rsqlQuery)) {
             return query;
         }
@@ -132,7 +116,7 @@ public abstract class AbstractCriteriaAwareRepository<T> implements PanacheRepos
                 .withPredicateBuilderStrategy(new CustomizedPredicateBuilderStrategy());
 
         // create RSQLParser with default and custom operators
-        Node rootNode = predicateParser.parse(preprocessRSQL(rsqlQuery));
+        Node rootNode = predicateParser.parse(rsqlQuery);
         Predicate predicate = rootNode.accept(visitor, entityManagerAdapter);
 
         return query.where(predicate);

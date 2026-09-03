@@ -166,6 +166,15 @@ class SbomRepositoryTest {
     }
 
     @Test
+    void testRSQLLike() {
+        String rsqlQuery = "rootPurl=like='%my broker 7.11.5%'";
+        List<Sbom> sboms = sbomRepository
+                .search(QueryParameters.builder().pageIndex(0).pageSize(10).rsqlQuery(rsqlQuery).build());
+        assertEquals(1, sboms.size());
+        assertEquals("816640206274228223", sboms.get(0).getId());
+    }
+
+    @Test
     void testValidOperationBom() {
         String rsqlQuery = "identifier=eq=OPBGCD23DVYAC";
         Sbom sbom = sbomRepository.search(QueryParameters.builder().pageSize(1).rsqlQuery(rsqlQuery).build()).get(0);
