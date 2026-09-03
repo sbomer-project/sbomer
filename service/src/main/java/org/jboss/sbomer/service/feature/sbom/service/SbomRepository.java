@@ -29,6 +29,7 @@ import org.jboss.sbomer.service.feature.sbom.model.SbomGenerationRequest;
 import org.jboss.sbomer.service.rest.QueryParameters;
 import org.jboss.sbomer.service.rest.criteria.CriteriaAwareRepository;
 
+import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.criteria.Join;
 import jakarta.transaction.Transactional;
@@ -70,6 +71,14 @@ public class SbomRepository extends CriteriaAwareRepository<Sbom> {
      */
     public List<Sbom> findSbomsByGenerationRequest(String generationRequestId) {
         return find("generationRequest.id = ?1", generationRequestId).list();
+    }
+
+    public Sbom findLatestSbomByGenerationRequest(String generationRequestId) {
+        return find("generationRequest.id = ?1", Sort.descending("creationTime"), generationRequestId).firstResult();
+    }
+
+    public Sbom findLatestSbomByRootPurl(String rootPurl) {
+        return find("rootPurl = ?1", Sort.descending("creationTime"), rootPurl).firstResult();
     }
 
     @Transactional

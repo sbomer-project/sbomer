@@ -18,12 +18,9 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.jboss.sbomer.core.config.request.ErrataAdvisoryRequestConfig;
-import org.jboss.sbomer.core.dto.BaseSbomGenerationRequestRecord;
-import org.jboss.sbomer.core.dto.BaseSbomRecord;
 import org.jboss.sbomer.core.features.sbom.config.Config;
 import org.jboss.sbomer.core.features.sbom.enums.GenerationRequestType;
 import org.jboss.sbomer.core.features.sbom.enums.GenerationResult;
-import org.jboss.sbomer.core.features.sbom.rest.Page;
 import org.jboss.sbomer.core.features.sbom.utils.SbomUtils;
 import org.jboss.sbomer.core.test.TestResources;
 import org.jboss.sbomer.service.feature.sbom.errata.ErrataClient;
@@ -110,29 +107,6 @@ public class CommentAdvisoryOnRelevantEventsListenerTest {
         return generationRequests;
     }
 
-    private Page<BaseSbomRecord> createFailedGenerationBaseSbomRecordPage() {
-        return new Page<>(0, 1, 1, 0, List.of());
-    }
-
-    private Page<BaseSbomRecord> createSuccessfulGenerationBaseSbomRecordPage() {
-        SbomGenerationRequest generationRequest = createSuccessfulGeneration();
-        BaseSbomGenerationRequestRecord genRec1 = new BaseSbomGenerationRequestRecord(
-                generationRequest.getId(),
-                generationRequest.getIdentifier(),
-                generationRequest.getConfig(),
-                generationRequest.getType(),
-                generationRequest.getCreationTime());
-        BaseSbomRecord sbomRec1 = new BaseSbomRecord(
-                "BA944EBE26E3446",
-                "registry-proxy.engineering.redhat.com/rh-osbs/openshift-ose-csi-driver-manila-operator-rhel9@sha256:2808208e87226be9a9d81cf49013f508e534c9135ba8bfdd8ba596d9a321948c",
-                "pkg:oci/ose-csi-driver-manila-operator-rhel9@sha256%3A36234273400823174d6d55cbe13eed40fb19e23069aca9cac43958f8be7c2a53?arch=ppc64le&os=linux&tag=v4.17.0-202504091537.p0.gefc99a2.assembly.stream.el",
-                Instant.now(),
-                0,
-                null,
-                genRec1);
-        return new Page<>(0, 1, 3, 3, List.of(sbomRec1));
-    }
-
     private Sbom createSuccessfulSbom() throws IOException {
         return Sbom.builder()
                 .withId("BA944EBE26E3446")
@@ -149,21 +123,7 @@ public class CommentAdvisoryOnRelevantEventsListenerTest {
     @Test
     void testHandleAutomatedManifestationAdvisory() throws IOException {
 
-        when(
-                sbomService.searchSbomRecordsByQueryPaginated(
-                        0,
-                        1,
-                        "generation.id=eq='E2C857A8C98D440'",
-                        "creationTime=desc="))
-                .thenReturn(createSuccessfulGenerationBaseSbomRecordPage());
-        when(
-                sbomService.searchSbomRecordsByQueryPaginated(
-                        0,
-                        1,
-                        "generation.id=eq='006CE39D4EF54A7'",
-                        "creationTime=desc="))
-                .thenReturn(createFailedGenerationBaseSbomRecordPage());
-        when(sbomService.get("BA944EBE26E3446")).thenReturn(createSuccessfulSbom());
+        when(sbomService.findByGenerationRequest("E2C857A8C98D440")).thenReturn(createSuccessfulSbom());
 
         // Prepare test data
         RequestEventStatusUpdateEvent event = RequestEventStatusUpdateEvent.builder()
@@ -203,7 +163,7 @@ public class CommentAdvisoryOnRelevantEventsListenerTest {
 
         commentAdvisoryOnRelevantEventsListener.handleAutomatedManifestationAdvisory(event, config);
 
-        verify(sbomService, times(1)).get("BA944EBE26E3446");
+        verify(sbomService, times(1)).findByGenerationRequest("E2C857A8C98D440");
 
         // Assert the captured outputs
         assertEquals("2 builds manifested. 1 generations succeeded, 1 failed.\n\n", summarySection.get());
