@@ -17,20 +17,44 @@
  */
 package org.jboss.sbomer.core.features.sbom.utils;
 
+import java.util.TreeMap;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.github.packageurl.MalformedPackageURLException;
 import com.github.packageurl.PackageURL;
 
+import lombok.extern.slf4j.Slf4j;
+
+/**
+ * OpenJDK/OpenFX generic PURLs carry a richer version than a plain semver: they append a build number and release (e.g.
+ * {@code 1.8.0.492.b09-1}) and, for newer feature releases, a four or five part version plus release (e.g.
+ * {@code 17.0.15.0.6-1}). The generic {@link GenericPurlWrapperUtil} strategies only extract the leading semver and
+ * strand the remainder in the name, so this subclass extracts the full version instead.
+ *
+ * <p>
+ * The version is the leading run of numeric / {@code bNN} build tokens that follows the
+ * {@code openjdk-}/{@code openjfx-} marker (skipping intervening words such as {@code -portable-}, {@code -jre-},
+ * {@code -debug-}, {@code -static-devel-}), optionally reaching through a trailing {@code -redhat.bNN} qualifier used
+ * by some older Windows builds.
+ */
+@Slf4j
 public class OpenJdkGenericPurlWrapperUtil extends GenericPurlWrapperUtil {
 
-    private static final Pattern[] OPENJDK_VERSION_REGEX_STRATEGIES = {
-            Pattern.compile("(?<version>\\d+\\.\\d+\\.\\d+\\.\\d+\\.b\\d+-\\d+)"),
-            Pattern.compile("(?<version>\\d+\\.\\d+\\.\\d+)(?<qualsep>[.-](?<qualifier>Final|[A-Z]+\\d*))?"),
-            Pattern.compile("(?<version>\\d+\\.\\d+)(?<qualsep>[.-](?<qualifier>[A-Z]+\\d*))?"),
-            Pattern.compile("(?<version>\\d+_\\d+)(?<qualsep>[.-](?<qualifier>[A-Z]+\\d*))?") };
+    /**
+     * Matches Red Hat OpenJDK and OpenJFX filenames. Deliberately case-sensitive so Temurin/Adoptium artifacts
+     * ({@code OpenJDK25U-...}) are left to the generic extractor.
+     */
+    private static final Pattern OPENJDK_NAME_PATTERN = Pattern
+            .compile("java-.*-openjdk|java-openjdk|openjdk-|openjfx");
 
-    private static final Pattern OPENJDK_NAME_PATTERN = Pattern.compile("java-.*-openjdk|java-openjdk");
+    /**
+     * Captures the version run after the {@code openjdk}/{@code openjfx} marker. {@code [a-z-]*?} lazily skips
+     * intervening classifier words; the version is a run of numeric or {@code bNN} tokens separated by {@code . - _},
+     * optionally extended through a trailing {@code -redhat.bNN} build qualifier.
+     */
+    private static final Pattern OPENJDK_VERSION_PATTERN = Pattern
+            .compile("open(?:jdk|jfx)[a-z-]*?-(?<version>(?:\\d+|b\\d+)(?:[._-](?:\\d+|b\\d+))*(?:-redhat\\.b\\d+)?)");
 
     public OpenJdkGenericPurlWrapperUtil(String purl) throws MalformedPackageURLException {
         super(purl);
@@ -41,12 +65,41 @@ public class OpenJdkGenericPurlWrapperUtil extends GenericPurlWrapperUtil {
     }
 
     @Override
-    protected Pattern[] getVersionRegexStrategies() {
-        return OPENJDK_VERSION_REGEX_STRATEGIES;
+    public PackageURL getVersionedPurl() {
+        PackageURL p = this.getPackageURL();
+        String fileName = p.getName();
+
+        Matcher matcher = OPENJDK_VERSION_PATTERN.matcher(fileName);
+        if (!matcher.find()) {
+            // Fall back to the generic strategies (e.g. plain semver names)
+            return super.getVersionedPurl();
+        }
+
+        String version = matcher.group("version");
+        String baseName = fileName.replace(version, "")
+                .replace("--", "-")
+                .replace("..", ".")
+                .replace("-.", ".")
+                .replace(".-", ".")
+                .replace("__", "_")
+                .replaceAll("^-|-$", "");
+
+        try {
+            return new PackageURL(
+                    p.getType(),
+                    p.getNamespace(),
+                    baseName,
+                    version,
+                    (p.getQualifiers() == null) ? null : new TreeMap<>(p.getQualifiers()),
+                    p.getSubpath());
+        } catch (MalformedPackageURLException e) {
+            log.error("Unable to create versioned purl from {}", p.canonicalize(), e);
+            return null;
+        }
     }
 
     public static boolean isOpenJdkPurl(PackageURL purl) {
-        return purl != null && "generic".equals(purl.getType()) && OPENJDK_NAME_PATTERN.matcher(purl.getName()).find();
+        return purl != null && "generic".equals(purl.getType()) && isOpenJdkPurl(purl.getName());
     }
 
     public static boolean isOpenJdkPurl(String purlName) {

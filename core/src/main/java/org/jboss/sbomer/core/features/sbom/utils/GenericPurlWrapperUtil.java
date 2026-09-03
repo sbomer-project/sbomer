@@ -81,7 +81,7 @@ public class GenericPurlWrapperUtil {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
     /*
-     * Our Regex that covers most the patterns we see on the RCM release area
+     * Our Regex that covers most the patterns we see in released artifact filenames
      */
     private static final Pattern[] FILENAME_VERSION_REGEX_STRATEGIES = {
             Pattern.compile("(?<version>\\d+\\.\\d+\\.\\d+)(?<qualsep>[.-](?<qualifier>Final|[A-Z]+\\d*))?"),
@@ -284,17 +284,13 @@ public class GenericPurlWrapperUtil {
         return Math.max(0.0, 1.0 - totalPenalty);
     }
 
-    protected Pattern[] getVersionRegexStrategies() {
-        return FILENAME_VERSION_REGEX_STRATEGIES;
-    }
-
     public PackageURL getVersionedPurl() {
         boolean found = false;
         PackageURL replaced = null;
         PackageURL p = this.getPackageURL();
         String fileName = p.getName();
 
-        for (Pattern pattern : getVersionRegexStrategies()) {
+        for (Pattern pattern : FILENAME_VERSION_REGEX_STRATEGIES) {
             Matcher matcher = pattern.matcher(fileName);
             if (matcher.find()) {
                 String reconstructedVersion = matcher.group(0);
