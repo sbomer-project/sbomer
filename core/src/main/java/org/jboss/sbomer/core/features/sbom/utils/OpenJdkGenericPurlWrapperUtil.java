@@ -46,7 +46,7 @@ public class OpenJdkGenericPurlWrapperUtil extends GenericPurlWrapperUtil {
      * ({@code OpenJDK25U-...}) are left to the generic extractor.
      */
     private static final Pattern OPENJDK_NAME_PATTERN = Pattern
-            .compile("java-.*-openjdk|java-openjdk|openjdk-|openjfx");
+            .compile("^(?:java-.*-openjdk|java-openjdk|openjdk-|openjfx)");
 
     /**
      * Captures the version run after the {@code openjdk}/{@code openjfx} marker. {@code [a-z-]*?} lazily skips
@@ -76,13 +76,7 @@ public class OpenJdkGenericPurlWrapperUtil extends GenericPurlWrapperUtil {
         }
 
         String version = matcher.group("version");
-        String baseName = fileName.replace(version, "")
-                .replace("--", "-")
-                .replace("..", ".")
-                .replace("-.", ".")
-                .replace(".-", ".")
-                .replace("__", "_")
-                .replaceAll("^-|-$", "");
+        String baseName = stripVersionFromName(fileName, matcher.start("version"), matcher.end("version"));
 
         try {
             return new PackageURL(

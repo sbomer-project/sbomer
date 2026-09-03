@@ -41,15 +41,17 @@ class OpenJdkGenericPurlWrapperUtilTest {
     }
 
     @Test
-    @DisplayName("Should fall back to standard version extraction for a plain semver openjdk name")
+    @DisplayName("Should fall back to standard version extraction when no version follows the openjdk marker")
     void testFallbackToStandardVersionExtraction() throws MalformedPackageURLException {
+        // The version precedes the 'openjdk' marker, so OPENJDK_VERSION_PATTERN does not match and extraction
+        // delegates to the generic semver strategies.
         OpenJdkGenericPurlWrapperUtil wrapper = new OpenJdkGenericPurlWrapperUtil(
-                "pkg:generic/java-openjdk-portable-1.8.0.tar.xz");
+                "pkg:generic/java-1.8.0-openjdk.tar.xz");
         PackageURL versionedPurl = wrapper.getVersionedPurl();
 
         assertNotNull(versionedPurl);
         assertEquals("1.8.0", versionedPurl.getVersion());
-        assertEquals("java-openjdk-portable.tar.xz", versionedPurl.getName());
+        assertEquals("java-openjdk.tar.xz", versionedPurl.getName());
     }
 
     @Test
