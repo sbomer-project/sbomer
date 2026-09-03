@@ -20,11 +20,13 @@ package org.jboss.sbomer.service.feature.sbom.service;
 import java.util.List;
 
 import org.jboss.sbomer.core.errors.NotFoundException;
+import org.jboss.sbomer.core.features.sbom.enums.GenerationRequestType;
 import org.jboss.sbomer.service.feature.sbom.model.Sbom;
 import org.jboss.sbomer.service.feature.sbom.model.SbomGenerationRequest;
 import org.jboss.sbomer.service.rest.criteria.CriteriaAwareRepository;
 
 import io.quarkus.panache.common.Parameters;
+import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
@@ -64,5 +66,9 @@ public class SbomGenerationRequestRepository extends CriteriaAwareRepository<Sbo
     @Transactional
     public List<SbomGenerationRequest> listByIdentifier(String identifier) {
         return find("identifier = ?1", identifier).list();
+    }
+
+    public SbomGenerationRequest findLatestByIdentifierAndType(String identifier, GenerationRequestType type) {
+        return find("identifier = ?1 and type = ?2", Sort.descending("creationTime"), identifier, type).firstResult();
     }
 }

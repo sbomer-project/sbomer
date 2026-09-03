@@ -498,7 +498,8 @@ public class SbomService {
      * @param purl the purl
      * @return The latest generated SBOM or {@code null}.
      */
-    public Sbom findByPurl(String purl) {
+    @WithSpan
+    public Sbom findByPurl(@SpanAttribute(value = "purl") String purl) {
         String canonicalPurl = SbomUtils.canonicalizePurl(purl);
         log.debug("Trying to find latest generated SBOM for purl: '{}' (canonicalized to '{}')", purl, canonicalPurl);
         Sbom exactSbom = findByExactPurl(canonicalPurl);
@@ -526,41 +527,49 @@ public class SbomService {
     }
 
     private Sbom findByExactPurl(String purl) {
-        QueryParameters parameters = QueryParameters.builder()
-                .rsqlQuery("rootPurl=eq='" + purl + "'")
-                .sort("creationTime=desc=")
-                .pageSize(10)
-                .pageIndex(0)
-                .build();
+        Sbom sbom = sbomRepository.findLatestSbomByRootPurl(purl);
 
-        List<Sbom> sboms = sbomRepository.search(parameters);
-
-        log.debug("Found {} results for the '{}' purl", sboms.size(), purl);
-
-        if (sboms.isEmpty()) {
+        if (sbom == null) {
+            log.debug("No results found for purl '{}'", purl);
             return null;
         }
 
-        return sboms.get(0);
+        log.debug("Found manifest '{}' for purl '{}'", sbom.getId(), purl);
+        return sbom;
     }
 
-    public SbomGenerationRequest findRequestByIdentifier(GenerationRequestType type, String identifier) {
-        QueryParameters parameters = QueryParameters.builder()
-                .rsqlQuery("identifier=eq='" + identifier + "' and type=eq=" + type)
-                .sort("creationTime=desc=")
-                .pageSize(10)
-                .pageIndex(0)
-                .build();
+    @WithSpan
+    public SbomGenerationRequest findRequestByIdentifier(
+            @SpanAttribute(value = "type") GenerationRequestType type,
+            @SpanAttribute(value = "identifier") String identifier) {
+        SbomGenerationRequest request = sbomRequestRepository.findLatestByIdentifierAndType(identifier, type);
 
-        List<SbomGenerationRequest> sboms = sbomRequestRepository.search(parameters);
-
-        log.debug("Found {} results for the '{}' identifier nad '{}' type", sboms.size(), identifier, type);
-
-        if (sboms.isEmpty()) {
+        if (request == null) {
+            log.debug("No results found for identifier '{}' and type '{}'", identifier, type);
             return null;
         }
 
-        return sboms.get(0);
+        log.debug("Found generation request '{}' for identifier '{}' and type '{}'", request.getId(), identifier, type);
+        return request;
+    }
+
+    /**
+     * Searches for the latest generated SBOM matching the provided {@code generationRequestId}.
+     *
+     * @param generationRequestId the generation request identifier
+     * @return The latest generated SBOM or {@code null}.
+     */
+    @WithSpan
+    public Sbom findByGenerationRequest(@SpanAttribute(value = "generationRequestId") String generationRequestId) {
+        Sbom sbom = sbomRepository.findLatestSbomByGenerationRequest(generationRequestId);
+
+        if (sbom == null) {
+            log.debug("No results found for the generation request '{}' ", generationRequestId);
+            return null;
+        }
+
+        log.debug("Found manifest '{}' for generation request '{}'", sbom.getId(), generationRequestId);
+        return sbom;
     }
 
     /**

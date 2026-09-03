@@ -27,10 +27,8 @@ import java.util.stream.Collectors;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.sbomer.core.config.request.ErrataAdvisoryRequestConfig;
-import org.jboss.sbomer.core.dto.BaseSbomRecord;
 import org.jboss.sbomer.core.features.sbom.enums.GenerationRequestType;
 import org.jboss.sbomer.core.features.sbom.enums.RequestEventStatus;
-import org.jboss.sbomer.core.features.sbom.rest.Page;
 import org.jboss.sbomer.core.features.sbom.utils.ObjectMapperProvider;
 import org.jboss.sbomer.core.features.sbom.utils.SbomUtils;
 import org.jboss.sbomer.service.feature.FeatureFlags;
@@ -272,17 +270,12 @@ public class CommentAdvisoryOnRelevantEventsListener {
         if (GenerationRequestType.CONTAINERIMAGE.equals(generation.getType())) {
             // The NVR is not stored inside the generation, we need to get it from the manifest. If it is null, it might
             // be a release manifest or the manifest failed to generate, we will return the identifier
-            Page<BaseSbomRecord> baseSboms = sbomService.searchSbomRecordsByQueryPaginated(
-                    0,
-                    1,
-                    "generation.id=eq='" + generation.getId() + "'",
-                    "creationTime=desc=");
+            Sbom sbom = sbomService.findByGenerationRequest(generation.getId());
 
-            if (baseSboms.getTotalHits() <= 0) {
+            if (sbom == null) {
                 return generation.getIdentifier() + ": ";
             }
 
-            Sbom sbom = sbomService.get(baseSboms.getContent().iterator().next().id());
             List<String> nvrList = SbomUtils.computeNVRFromContainerManifest(sbom.getSbom());
             if (!nvrList.isEmpty()) {
                 return String.join("-", nvrList) + ": ";

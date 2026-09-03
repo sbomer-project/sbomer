@@ -22,23 +22,19 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.spy;
 
 import java.util.Collection;
 
 import org.jboss.sbomer.core.dto.BaseSbomRecord;
+import org.jboss.sbomer.core.features.sbom.enums.GenerationRequestType;
 import org.jboss.sbomer.core.features.sbom.rest.Page;
 import org.jboss.sbomer.service.feature.sbom.model.Sbom;
-import org.jboss.sbomer.service.feature.sbom.service.SbomRepository;
+import org.jboss.sbomer.service.feature.sbom.model.SbomGenerationRequest;
 import org.jboss.sbomer.service.feature.sbom.service.SbomService;
-import org.jboss.sbomer.service.rest.QueryParameters;
 import org.jboss.sbomer.service.test.utils.umb.TestUmbProfile;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
-import io.quarkus.arc.ClientProxy;
-import io.quarkus.test.junit.QuarkusMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
@@ -52,10 +48,13 @@ class SBOMServiceTest {
     @Inject
     SbomService sbomService;
 
-    @Inject
-    SbomRepository sbomRepository;
-
     private static final String INITIAL_BUILD_ID = "ARYT3LBXDVYAC";
+
+    private static final String GRAPHQL_PURL = "pkg:maven/org.eclipse.microprofile.graphql/microprofile-graphql-parent@1.1.0.redhat-00008?type=pom";
+
+    private static final String GRAPHQL_SBOM_ID = "416640206274228224";
+
+    private static final String GRAPHQL_REQUEST_ID = "AASSBB";
 
     @Test
     void testGetBaseSbom() {
@@ -103,46 +102,76 @@ class SBOMServiceTest {
 
         @Test
         void testGetSbomByPurl() {
-            SbomRepository sbomRepositorySpy = spy(ClientProxy.unwrap(sbomRepository));
-            QuarkusMock.installMockForInstance(sbomRepositorySpy, sbomRepository);
-
-            // Part of the import.sql
-            String purl = "pkg:maven/org.eclipse.microprofile.graphql/microprofile-graphql-parent@1.1.0.redhat-00008?type=pom";
-            Sbom sbom = sbomService.findByPurl(purl);
+            Sbom sbom = sbomService.findByPurl(GRAPHQL_PURL);
 
             assertNotNull(sbom);
+            assertEquals(GRAPHQL_SBOM_ID, sbom.getId());
+            assertEquals(GRAPHQL_PURL, sbom.getRootPurl());
+        }
 
-            Mockito.verify(sbomRepositorySpy, Mockito.times(1))
-                    .search(
-                            QueryParameters.builder()
-                                    .rsqlQuery("rootPurl=eq='" + purl + "'")
-                                    .sort("creationTime=desc=")
-                                    .pageSize(10)
-                                    .pageIndex(0)
-                                    .build());
-
-            assertEquals("416640206274228224", sbom.getId());
-            assertEquals(purl, sbom.getRootPurl());
+        @Test
+        void testGetSbomByPurlHandlesEscapesAndQuotes() {
+            assertNotNull(sbomService.findByPurl(GRAPHQL_PURL));
+            assertNull(sbomService.findByPurl(GRAPHQL_PURL + "' or rootPurl!='"));
+            assertNull(sbomService.findByPurl("' or rootPurl=='*"));
+            assertNull(sbomService.findByPurl("' or id=='" + GRAPHQL_SBOM_ID));
+            assertNull(sbomService.findByPurl("'"));
+            assertNull(sbomService.findByPurl("\\"));
+            assertNull(sbomService.findByPurl("a\\b'c"));
         }
 
         @Test
         void testGetSbomByPurlMrrcFallback() {
-            String purl = "pkg:maven/org.eclipse.microprofile.graphql/microprofile-graphql-parent@1.1.0.redhat-00008?type=pom";
             String qualifier = "repository_url=https%3A%2F%2Fmaven.repository.redhat.com%2Fga%2F";
-            String newPurl = purl + "&" + qualifier;
+            String newPurl = GRAPHQL_PURL + "&" + qualifier;
             Sbom sbom = sbomService.findByPurl(newPurl);
             assertNotNull(sbom);
-            assertEquals("416640206274228224", sbom.getId());
-            assertEquals(purl, sbom.getRootPurl());
+            assertEquals(GRAPHQL_SBOM_ID, sbom.getId());
+            assertEquals(GRAPHQL_PURL, sbom.getRootPurl());
         }
 
         @Test
         void testGetSbomByPurlNoFallback() {
-            String purl = "pkg:maven/org.eclipse.microprofile.graphql/microprofile-graphql-parent@1.1.0.redhat-00008?type=pom";
             String qualifier = "repository_url=http://repo.maven.apache.org/maven2";
-            String newPurl = purl + "&" + qualifier;
+            String newPurl = GRAPHQL_PURL + "&" + qualifier;
             Sbom sbom = sbomService.findByPurl(newPurl);
             assertNull(sbom);
         }
+    }
+
+    @Test
+    void testFindRequestByIdentifier() {
+        SbomGenerationRequest request = sbomService
+                .findRequestByIdentifier(GenerationRequestType.BUILD, INITIAL_BUILD_ID);
+        assertNotNull(request);
+        assertEquals(GRAPHQL_REQUEST_ID, request.getId());
+        assertEquals(INITIAL_BUILD_ID, request.getIdentifier());
+        assertEquals(GenerationRequestType.BUILD, request.getType());
+    }
+
+    @Test
+    void testFindRequestByIdentifierHandlesEscapesAndQuotes() {
+        assertNotNull(sbomService.findRequestByIdentifier(GenerationRequestType.BUILD, INITIAL_BUILD_ID));
+        assertNull(
+                sbomService
+                        .findRequestByIdentifier(GenerationRequestType.BUILD, INITIAL_BUILD_ID + "' or identifier!='"));
+        assertNull(sbomService.findRequestByIdentifier(GenerationRequestType.BUILD, "' or identifier=='*"));
+        assertNull(sbomService.findRequestByIdentifier(GenerationRequestType.BUILD, "' or id=='" + GRAPHQL_REQUEST_ID));
+        assertNull(sbomService.findRequestByIdentifier(GenerationRequestType.BUILD, "'"));
+        assertNull(sbomService.findRequestByIdentifier(GenerationRequestType.BUILD, "\\"));
+        assertNull(sbomService.findRequestByIdentifier(GenerationRequestType.BUILD, "a\\b'c"));
+    }
+
+    @Test
+    void testFindByGenerationRequest() {
+        Sbom sbom = sbomService.findByGenerationRequest(GRAPHQL_REQUEST_ID);
+        assertNotNull(sbom);
+        assertEquals(GRAPHQL_SBOM_ID, sbom.getId());
+        assertEquals(GRAPHQL_REQUEST_ID, sbom.getGenerationRequest().getId());
+    }
+
+    @Test
+    void testFindByGenerationRequestNotFound() {
+        assertNull(sbomService.findByGenerationRequest("doesntexist"));
     }
 }
