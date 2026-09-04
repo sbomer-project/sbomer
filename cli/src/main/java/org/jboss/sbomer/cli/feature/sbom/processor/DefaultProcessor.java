@@ -25,8 +25,8 @@ import static org.jboss.sbomer.core.features.sbom.Constants.SBOM_RED_HAT_ENVIRON
 import static org.jboss.sbomer.core.features.sbom.Constants.SBOM_RED_HAT_PNC_BUILD_ID;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.addExternalReference;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.addHashIfMissing;
-import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.addMrrc;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.addPedigreeAncestor;
+import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.addRedHatMetadata;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.getHash;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.hasExternalReference;
 import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.setArtifactMetadata;
@@ -77,14 +77,13 @@ public class DefaultProcessor implements Processor {
         this.kojiService = kojiService;
     }
 
-    private final Map<String, String> purlRelocations = new HashMap<>();
-
     /**
      * Performs processing for a given {@link Component}.
      *
      * @param component the component to process
+     * @param purlRelocations the map of purl relocations
      */
-    protected void processComponent(Component component) {
+    protected void processComponent(Component component, Map<String, String> purlRelocations) {
         log.debug("Processing '{}'...", component.getPurl());
 
         if (component.getPurl() == null) {
@@ -166,11 +165,7 @@ public class DefaultProcessor implements Processor {
                     artifact.getId());
 
             // In case this is a RH artifact, add more properties.
-            if (RhVersionPattern.isRhVersion(component.getVersion()) || SbomUtils.isRhNpmPurl(component.getPurl())) {
-                setPublisher(component);
-                setSupplier(component);
-                addMrrc(component);
-            }
+            addRedHatMetadata(component, artifact);
 
             // Add artifact metadata (PNC url)
             setArtifactMetadata(component, artifact, pncService.getApiUrl());
@@ -232,6 +227,7 @@ public class DefaultProcessor implements Processor {
     public Bom process(Bom bom) {
         // TODO: this should be moved to its own workflow
         new PncBuildAdjuster().adjust(bom);
+        Map<String, String> purlRelocations = new HashMap<>();
 
         if (bom.getMetadata() != null && bom.getMetadata().getComponent() != null) {
             Component component = bom.getMetadata().getComponent();
@@ -239,7 +235,7 @@ public class DefaultProcessor implements Processor {
             // For container images, there is nothing to do for the metadata component.
             // All modifications are done in the main component.
             if (Objects.requireNonNull(component.getType()) != Component.Type.CONTAINER) {
-                processComponent(component);
+                processComponent(component, purlRelocations);
             }
         }
 
@@ -253,7 +249,7 @@ public class DefaultProcessor implements Processor {
                     if (PackageURL.StandardTypes.RPM.equals(purl.getType())) {
                         processRpmComponent(c, purl);
                     } else {
-                        processComponent(c);
+                        processComponent(c, purlRelocations);
                     }
                 }
             }

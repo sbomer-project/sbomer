@@ -65,6 +65,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.apache.commons.collections4.MapUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.commonjava.atlas.maven.ident.ref.SimpleArtifactRef;
@@ -610,11 +611,7 @@ public class SbomUtils {
         hashes.add(new Hash(Algorithm.SHA_256, artifact.getSha256()));
         component.setHashes(hashes);
 
-        if (RhVersionPattern.isRhVersion(component.getVersion()) || isRhNpmPurl(component.getPurl())) {
-            SbomUtils.setPublisher(component);
-            SbomUtils.setSupplier(component);
-            SbomUtils.addMrrc(component);
-        }
+        addRedHatMetadata(component, artifact);
         return component;
     }
 
@@ -978,7 +975,11 @@ public class SbomUtils {
     }
 
     public static Optional<Component> findComponentWithPurl(String purl, Bom bom) {
-        return bom.getComponents().stream().filter(c -> c.getPurl().equals(purl)).findFirst();
+        return Optional.ofNullable(bom.getComponents())
+                .orElse(Collections.emptyList())
+                .stream()
+                .filter(c -> purl.equals(c.getPurl()))
+                .findFirst();
     }
 
     public static boolean hasProperty(Component component, String property) {
@@ -1104,28 +1105,25 @@ public class SbomUtils {
     }
 
     public static void addMrrc(Component c) {
-        if (!isRedHatMavenComponent(c)) {
+        addMrrc(c, c.getPurl());
+    }
+
+    private static void addMrrc(Component c, String purl) {
+        if (!isRedHatMavenPurl(purl)) {
             return;
         }
 
-        List<ExternalReference> externalRefs = new ArrayList<>();
-        if (c.getExternalReferences() != null) {
-            externalRefs.addAll(c.getExternalReferences());
+        addExternalReference(c, ExternalReference.Type.DISTRIBUTION, MRRC_URL, null);
+    }
+
+    public static void addRedHatMetadata(Component c, Artifact artifact) {
+        String purl = ObjectUtils.firstNonNull(artifact.getPurl(), c.getPurl());
+
+        if (RhVersionPattern.isRhVersion(c.getVersion()) || isRhNpmPurl(purl)) {
+            setPublisher(c);
+            setSupplier(c);
+            addMrrc(c, purl);
         }
-        ExternalReference dist = null;
-        for (ExternalReference r : externalRefs) {
-            if (r.getType().equals(ExternalReference.Type.DISTRIBUTION)) {
-                dist = r;
-                break;
-            }
-        }
-        if (dist == null) {
-            dist = new ExternalReference();
-            dist.setType(ExternalReference.Type.DISTRIBUTION);
-            externalRefs.add(dist);
-        }
-        dist.setUrl(MRRC_URL);
-        c.setExternalReferences(externalRefs);
     }
 
     /**
@@ -1668,11 +1666,19 @@ public class SbomUtils {
      * Returns whether the provided component is a Red Hat build of a Maven artifact based on its purl type and version.
      *
      * @param component the component
-     * @return {@code true} if the purl is a valid Maven purl and its version is a Red Hat one
+     * @return {@code true} if the purl of the component is a valid Red Hat purl, {@code false} otherwise
      */
     private static boolean isRedHatMavenComponent(Component component) {
-        String purl = component.getPurl();
+        return isRedHatMavenPurl(component.getPurl());
+    }
 
+    /**
+     * Returns whether the provided purl is a Red Hat Maven purl.
+     *
+     * @param purl the purl
+     * @return {@code true} if the purl is a valid Red Hat Maven purl, {@code false} otherwise
+     */
+    private static boolean isRedHatMavenPurl(String purl) {
         if (StringUtils.isBlank(purl)) {
             return false;
         }
