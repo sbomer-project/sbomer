@@ -2045,7 +2045,9 @@ public class SbomUtils {
 
         // Find and replace in evidence.identities
         try {
-            GenericPurlWrapperUtil newEvidencePurl = new GenericPurlWrapperUtil(purlToModify.get());
+            GenericPurlWrapperUtil newEvidencePurl = OpenJdkGenericPurlWrapperUtil.isOpenJdkPurl(purlToModify.get())
+                    ? new OpenJdkGenericPurlWrapperUtil(purlToModify.get())
+                    : new GenericPurlWrapperUtil(purlToModify.get());
             // We couldn't get a version, dont do anything
             if (newEvidencePurl.getVersionedPurl() == null)
                 return;
@@ -2060,7 +2062,9 @@ public class SbomUtils {
                 if ("generic".equals(topLevel.getType())
                         && (topLevel.getVersion() == null || topLevel.getVersion().isBlank())) {
                     try {
-                        GenericPurlWrapperUtil componentPurlWrapper = new GenericPurlWrapperUtil(topLevel);
+                        GenericPurlWrapperUtil componentPurlWrapper = OpenJdkGenericPurlWrapperUtil
+                                .isOpenJdkPurl(topLevel) ? new OpenJdkGenericPurlWrapperUtil(topLevel)
+                                        : new GenericPurlWrapperUtil(topLevel);
                         PackageURL versionedComponentPurl = componentPurlWrapper.getVersionedPurl();
                         if (versionedComponentPurl != null) {
                             String oldPurl = c.getPurl();

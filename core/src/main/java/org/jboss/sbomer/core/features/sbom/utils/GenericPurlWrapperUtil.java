@@ -81,7 +81,7 @@ public class GenericPurlWrapperUtil {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
     /*
-     * Our Regex that covers most the patterns we see on the RCM release area
+     * Our Regex that covers most the patterns we see in released artifact filenames
      */
     private static final Pattern[] FILENAME_VERSION_REGEX_STRATEGIES = {
             Pattern.compile("(?<version>\\d+\\.\\d+\\.\\d+)(?<qualsep>[.-](?<qualifier>Final|[A-Z]+\\d*))?"),
@@ -284,6 +284,21 @@ public class GenericPurlWrapperUtil {
         return Math.max(0.0, 1.0 - totalPenalty);
     }
 
+    /**
+     * Removes the matched version substring (given by its start/end offsets) from the filename and tidies up the
+     * separators left behind, producing the PURL name. Shared with {@link OpenJdkGenericPurlWrapperUtil} so the two
+     * cannot drift. Using offsets rather than {@link String#replace(CharSequence, CharSequence)} avoids stripping an
+     * earlier occurrence of the same version substring (e.g. {@code java-1.8.0-openjdk-1.8.0}).
+     */
+    protected static String stripVersionFromName(String fileName, int versionStart, int versionEnd) {
+        return (fileName.substring(0, versionStart) + fileName.substring(versionEnd)).replace("--", "-")
+                .replace("..", ".")
+                .replace("-.", ".")
+                .replace(".-", ".")
+                .replace("__", "_")
+                .replaceAll("^-|-$", "");
+    }
+
     public PackageURL getVersionedPurl() {
         boolean found = false;
         PackageURL replaced = null;
@@ -294,12 +309,7 @@ public class GenericPurlWrapperUtil {
             Matcher matcher = pattern.matcher(fileName);
             if (matcher.find()) {
                 String reconstructedVersion = matcher.group(0);
-                String baseName = fileName.replace(reconstructedVersion, "")
-                        .replace("--", "-")
-                        .replace("..", ".")
-                        .replace("-.", ".")
-                        .replace("__", "_")
-                        .replaceAll("^-|-$", "");
+                String baseName = stripVersionFromName(fileName, matcher.start(), matcher.end());
 
                 try {
 
