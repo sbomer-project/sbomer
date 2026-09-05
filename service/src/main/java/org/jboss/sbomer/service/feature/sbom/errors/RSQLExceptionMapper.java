@@ -35,12 +35,15 @@ public class RSQLExceptionMapper extends AbstractExceptionMapper<RSQLParserExcep
 
     @Override
     String errorMessage(RSQLParserException ex) {
-        return "An error occurred while parsing the RSQL query, please make sure you use correct syntax";
+        Throwable cause = ex.getCause();
+        return formattedString(
+                "An error occurred while parsing the RSQL query, please make sure you use correct syntax: {}",
+                cause != null ? cause.getMessage() : ex.getMessage());
     }
 
     @Override
     Response hook(ResponseBuilder responseBuilder, RSQLParserException ex) {
-        log.error("Could not parse RSQL", ex);
+        log.warn("Could not parse RSQL: {}", ex.getMessage());
 
         return responseBuilder.build();
     }

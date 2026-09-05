@@ -17,6 +17,8 @@
  */
 package org.jboss.sbomer.service.rest.criteria.predicate;
 
+import java.util.regex.Pattern;
+
 import org.jboss.sbomer.core.features.sbom.enums.GenerationResult;
 import org.jboss.sbomer.service.feature.sbom.k8s.model.SbomGenerationStatus;
 import org.jboss.sbomer.service.rest.criteria.AbstractCriteriaAwareRepository;
@@ -35,9 +37,21 @@ import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
 
 public class CustomizedPredicateBuilderStrategy implements PredicateBuilderStrategy {
+    private static final char ESCAPE_CHAR = '\\';
 
-    public static final char ESCAPE_CHAR = '\\';
-    public static final String WILDCARD_CHAR = "*";
+    private static final String ESCAPE_STRING = String.valueOf(ESCAPE_CHAR);
+
+    private static final String ESCAPED_ESCAPE = ESCAPE_STRING + ESCAPE_STRING;
+
+    private static final String UNDERSCORE = "_";
+
+    private static final String PERCENT = "%";
+
+    private static final String ESCAPED_UNDERSCORE = ESCAPE_STRING + UNDERSCORE;
+
+    private static final String WILDCARD_CHAR = "*";
+
+    private static final Pattern WILDCARD_PATTERN = Pattern.compile("[" + WILDCARD_CHAR + "\\s]+");
 
     @Override
     public <T> Predicate createPredicate(
@@ -105,6 +119,7 @@ public class CustomizedPredicateBuilderStrategy implements PredicateBuilderStrat
     }
 
     private String preprocessLikeOperatorArgument(String argument) {
-        return argument.replace("_", ESCAPE_CHAR + "_").replaceAll("\\" + WILDCARD_CHAR, "%");
+        String escaped = argument.trim().replace(ESCAPE_STRING, ESCAPED_ESCAPE).replace(UNDERSCORE, ESCAPED_UNDERSCORE);
+        return WILDCARD_PATTERN.matcher(escaped).replaceAll(PERCENT);
     }
 }
