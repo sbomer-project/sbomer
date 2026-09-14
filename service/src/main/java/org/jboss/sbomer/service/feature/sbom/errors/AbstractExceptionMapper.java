@@ -127,12 +127,20 @@ public abstract class AbstractExceptionMapper<T extends Throwable> implements Ex
         }
     }
 
+    static boolean isServerError(int statusCode) {
+        return statusCode >= 500;
+    }
+
     @Override
     public Response toResponse(T ex) {
         // Prepare default error entity for a given exception
         ErrorResponse errorResponse = errorResponse(ex);
 
-        log.error("ErrorId: '{}'", errorResponse.getErrorId());
+        if (isServerError(getStatus(ex).getStatusCode())) {
+            log.error("ErrorId: '{}'", errorResponse.getErrorId());
+        } else {
+            log.warn("ErrorId: '{}'", errorResponse.getErrorId());
+        }
 
         // Prepare initial response builder with default 500 error and JSON content type
         ResponseBuilder responseBuilder = Response.status(getStatus(ex))
