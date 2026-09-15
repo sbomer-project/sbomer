@@ -32,6 +32,12 @@ type Options = {
   baseUrl: string;
 };
 
+type RsqlOperator = '=eq=' | '=like=';
+
+export function rsqlComparison(field: string, operator: RsqlOperator, value: string): string {
+  return `${field}${operator}'${value.replace(/(['\\])/g, '\\$1')}'`;
+}
+
 export class DefaultSbomerApi implements SbomerApi {
   private readonly baseUrl: string;
 
@@ -90,8 +96,8 @@ export class DefaultSbomerApi implements SbomerApi {
         queryPrefix = '';
     }
 
-    const isQueryInputInvalid = !queryPrefix || !query ;
-    const queryStringValue = isQueryInputInvalid ? '' : `${queryPrefix}=like='%${query}%'`;
+    const isQueryInputInvalid = !queryPrefix || !query;
+    const queryStringValue = isQueryInputInvalid ? '' : rsqlComparison(queryPrefix, '=like=', `%${query}%`);
     const queryFullString = `${isQueryInputInvalid ? '' : 'query='}${encodeURIComponent(queryStringValue)}${isQueryInputInvalid ? '' : '&'}`;
 
     const response = await fetch(
@@ -119,7 +125,7 @@ export class DefaultSbomerApi implements SbomerApi {
 
   async getManifestsForGeneration(generationId: string): Promise<{ data: SbomerManifest[]; total: number }> {
     const response = await fetch(
-      `${this.baseUrl}/api/v1beta1/manifests?query=generation.id==${generationId}&pageSize=20&pageIndex=0`,
+      `${this.baseUrl}/api/v1beta1/manifests?query=${encodeURIComponent(rsqlComparison('generation.id', '=eq=', generationId))}&pageSize=20&pageIndex=0`,
     );
 
     if (response.status != 200) {
@@ -303,7 +309,7 @@ export class DefaultSbomerApi implements SbomerApi {
     // Loop through pages until all content is retrieved
     while (true) {
       const response = await fetch(
-        `${this.baseUrl}/api/v1beta1/generations?query=request.id=eq=${id}&sort=creationTime=desc=&pageSize=${pageSize}&pageIndex=${pageIndex}`,
+        `${this.baseUrl}/api/v1beta1/generations?query=${encodeURIComponent(rsqlComparison('request.id', '=eq=', id))}&sort=creationTime=desc=&pageSize=${pageSize}&pageIndex=${pageIndex}`,
       );
 
       if (response.status !== 200) {
