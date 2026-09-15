@@ -39,7 +39,7 @@ public class MismatchedInputExceptionMapper extends AbstractExceptionMapper<Mism
 
     @Override
     Response hook(ResponseBuilder responseBuilder, MismatchedInputException ex) {
-        log.error("Received content that cannot be deserialized", ex);
+        log.warn("Received content that cannot be deserialized", ex);
         return responseBuilder.build();
     }
 

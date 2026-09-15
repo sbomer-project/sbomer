@@ -40,7 +40,7 @@ public class RSQLExceptionMapper extends AbstractExceptionMapper<RSQLParserExcep
 
     @Override
     Response hook(ResponseBuilder responseBuilder, RSQLParserException ex) {
-        log.error("Could not parse RSQL", ex);
+        log.warn("Could not parse RSQL", ex);
 
         return responseBuilder.build();
     }

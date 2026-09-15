@@ -42,7 +42,11 @@ public class ClientExceptionMapper extends AbstractExceptionMapper<ClientExcepti
                 .errors(ex.getErrors())
                 .build();
 
-        log.error(error.toString(), ex);
+        if (isServerError(ex.getCode())) {
+            log.error(error.toString(), ex);
+        } else {
+            log.warn(error.toString(), ex);
+        }
 
         return Response.status(ex.getCode()).entity(error).type(MediaType.APPLICATION_JSON).build();
     }
