@@ -1,0 +1,44 @@
+{
+  "deliverables": [
+    {
+      "type": "pnc-analysis",
+      "milestoneId": "1234",
+      "urls": [
+        "https://example.com/dir/amq-clients-jms-1.17.0.CR2/amq-jms-1.17.0.CR2-maven-repository.zip",
+        "https://example.com/dir/amq-clients-jms-1.17.0.CR2/amq-jms-1.17.0.CR2-src.zip"
+      ]
+    },
+    {
+      "type": "pnc-analysis",
+      "milestoneId": "1235",
+      "urls": [
+        "https://example.com/dir/amq-clients-jms-2.11.0.CR2/amq-jms-2.11.0.CR2-maven-repository.zip",
+        "https://example.com/dir/amq-clients-jms-2.11.0.CR2/amq-jms-2.11.0.CR2-src.zip"
+      ]
+    },
+    {
+      "type": "pnc-analysis",
+      "milestoneId": "1236",
+      "urls": [
+        "https://example.com/dir/amq-clients-spring-boot-starter-3.5.14.CR1/amq-spring-boot-starter-3.5.14.CR1-maven-repository.zip",
+        "https://example.com/dir/amq-clients-spring-boot-starter-3.5.14.CR1/amq-spring-boot-starter-3.5.14.CR1-src.zip"
+      ]
+    },
+    {
+      "type": "pnc-analysis",
+      "milestoneId": "1238",
+      "urls": [
+        "https://example.com/dir/amq-clients-proton-j2-1.3.0.CR1/amq-protonj2-1.3.0.CR1-maven-repository.zip",
+        "https://example.com/dir/amq-clients-proton-j2-1.3.0.CR1/amq-protonj2-1.3.0.CR1-src.zip"
+      ]
+    }
+  ],
+  "manifest": {
+    "refs": [
+      {
+        "type": "purl",
+        "uri": "pkg:nuget/AMQPNetLite@1.1.0.redhat-00001"
+      }
+    ]
+  }
+}
