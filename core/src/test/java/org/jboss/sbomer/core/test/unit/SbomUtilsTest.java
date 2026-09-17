@@ -1113,6 +1113,28 @@ class SbomUtilsTest {
     }
 
     @Test
+    void testAddMrrcKeepsDistribution() {
+        Bom bom = SbomUtils.fromPath(sbomPath("base.json"));
+        assertNotNull(bom);
+        String purl = "pkg:maven/org.eclipse.microprofile.graphql/microprofile-graphql-api@1.1.0.redhat-00008?type=jar";
+        Component component = SbomUtils.findComponentWithPurl(purl, bom).orElseThrow();
+        String stagingUrl = "https://oss.sonatype.org/service/local/staging/deploy/maven2/";
+        assertEquals(List.of(stagingUrl), getDistributionUrls(component));
+        int expectedSize = component.getExternalReferences().size() + 1;
+        SbomUtils.addMrrc(component);
+        SbomUtils.addMrrc(component);
+        assertEquals(List.of(stagingUrl, Constants.MRRC_URL), getDistributionUrls(component));
+        assertEquals(expectedSize, component.getExternalReferences().size());
+    }
+
+    private static List<String> getDistributionUrls(Component component) {
+        return SbomUtils.getExternalReferences(component, ExternalReference.Type.DISTRIBUTION)
+                .stream()
+                .map(ExternalReference::getUrl)
+                .toList();
+    }
+
+    @Test
     void testDoesNotAddMrrcToUpstreamVersion() {
         String purl = "pkg:maven/org.apache.logging.log4j/log4j@2.19.0?type=pom";
         Component component = createComponent("org.apache.logging.log4j", "log4j", "2.19.0", null, purl, Type.LIBRARY);
