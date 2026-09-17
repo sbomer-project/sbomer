@@ -54,6 +54,9 @@ public class AtlasHandler {
     @Inject
     FeatureFlags featureFlags;
 
+    @Inject
+    AtlasApiVersionResolver apiVersionResolver;
+
     public void publishBuildManifests(List<Sbom> sboms) {
         publishManifests(sboms, false);
     }
@@ -88,18 +91,22 @@ public class AtlasHandler {
                     sboms.stream().map(Sbom::getId).collect(Collectors.joining(", ")));
         }
 
+        String apiVersion = apiVersionResolver.resolve(isRelease);
+        log.info("Using Atlas API version '{}' for the {} instance", apiVersion, atlasInstanceName);
+
         for (Sbom sbom : sboms) {
-            uploadManifest(sbom, atlasClient);
+            uploadManifest(sbom, atlasClient, apiVersion);
         }
 
         log.info("Upload complete!");
     }
 
-    protected void uploadManifest(Sbom sbom, AtlasClient atlasClient) {
+    protected void uploadManifest(Sbom sbom, AtlasClient atlasClient, String apiVersion) {
         log.info("Uploading manifest '{}' (purl: '{}')...", sbom.getId(), sbom.getRootPurl());
 
         Map<String, String> attributes = new HashMap<>();
         attributes.put("params.atlas.client.name", OtelHelper.getEffectiveClassName(atlasClient.getClass()));
+        attributes.put("params.atlas.api.version", apiVersion);
         attributes.put("params.sbom.id", sbom.getId());
         attributes.put("params.sbom.rootpurl", sbom.getRootPurl());
         LABELS.forEach((k, v) -> attributes.put("params.atlas.label." + k, v));
@@ -108,7 +115,7 @@ public class AtlasHandler {
 
             try {
                 // Store it!
-                atlasClient.upload(LABELS, sbom.getSbom());
+                atlasClient.upload(apiVersion, LABELS, sbom.getSbom());
             } catch (ClientException e) {
                 throw new ApplicationException(
                         "Unable to store '{}' manifest in Atlas, purl: '{}': {}",
