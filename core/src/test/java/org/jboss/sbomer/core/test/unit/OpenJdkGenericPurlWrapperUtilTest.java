@@ -38,6 +38,9 @@ class OpenJdkGenericPurlWrapperUtilTest {
         assertNotNull(versioned, () -> "Expected a versioned purl for " + filename);
         assertEquals(expectedVersion, versioned.getVersion(), () -> "version mismatch for " + filename);
         assertEquals(expectedName, versioned.getName(), () -> "name mismatch for " + filename);
+
+        PackageURL expected = new PackageURL("generic", null, expectedName, expectedVersion, null, null);
+        assertEquals(expected.canonicalize(), versioned.canonicalize(), () -> "purl mismatch for " + filename);
     }
 
     @Test
@@ -55,20 +58,20 @@ class OpenJdkGenericPurlWrapperUtilTest {
     }
 
     @Test
-    @DisplayName("isOpenJdkPurl should match Red Hat OpenJDK and OpenJFX names")
+    @DisplayName("isOpenJdkPurl should match Red Hat OpenJDK/OpenJFX and Temurin/Adoptium names")
     void testIsOpenJdkPurlMatches() {
         assertTrue(OpenJdkGenericPurlWrapperUtil.isOpenJdkPurl("java-1.8.0-openjdk-1.8.0.492.b09-1.win.x86_64.msi"));
         assertTrue(OpenJdkGenericPurlWrapperUtil.isOpenJdkPurl("java-17-openjdk-17.0.15.0.6-1.portable.jdk.tar.xz"));
         assertTrue(OpenJdkGenericPurlWrapperUtil.isOpenJdkPurl("openjdk-11.0.22-1-provenance-and-verification.zip"));
         assertTrue(OpenJdkGenericPurlWrapperUtil.isOpenJdkPurl("openjfx-8.0.171-1.b11.redhat.windows.x86.zip"));
+        assertTrue(OpenJdkGenericPurlWrapperUtil.isOpenJdkPurl("OpenJDK25U-jdk_x64_windows_hotspot_25.0.2_10.zip"));
+        assertTrue(OpenJdkGenericPurlWrapperUtil.isOpenJdkPurl("OpenJDK26U-jmods_x64_windows_hotspot_26.0.1_8.zip"));
     }
 
     @Test
-    @DisplayName("isOpenJdkPurl should not match non-openjdk names or Temurin builds")
+    @DisplayName("isOpenJdkPurl should not match non-openjdk names")
     void testIsOpenJdkPurlDoesNotMatch() {
         assertFalse(OpenJdkGenericPurlWrapperUtil.isOpenJdkPurl("my-product-1.2.3.zip"));
-        // Temurin/Adoptium is intentionally out of scope (case-sensitive, no java-*-openjdk prefix)
-        assertFalse(OpenJdkGenericPurlWrapperUtil.isOpenJdkPurl("OpenJDK25U-jdk_x64_windows_hotspot_25.0.2_10.zip"));
         assertFalse(OpenJdkGenericPurlWrapperUtil.isOpenJdkPurl((String) null));
     }
 

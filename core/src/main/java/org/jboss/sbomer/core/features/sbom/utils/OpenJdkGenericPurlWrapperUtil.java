@@ -17,6 +17,7 @@
  */
 package org.jboss.sbomer.core.features.sbom.utils;
 
+import java.util.Objects;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -33,17 +34,22 @@ import lombok.extern.slf4j.Slf4j;
  * strand the remainder in the name, so this subclass extracts the full version instead.
  *
  * <p>
- * The version is the leading run of numeric / {@code bNN} build tokens that follows the
- * {@code openjdk-}/{@code openjfx-} marker (skipping intervening words such as {@code -portable-}, {@code -jre-},
+ * Two types of filenames are handled:
+ * <ul>
+ * <li>Red Hat OpenJDK/OpenJFX, where the version is the leading run of numeric/{@code bNN} build tokens that follows
+ * the {@code openjdk-}/{@code openjfx-} marker (skipping intervening words such as {@code -portable-}, {@code -jre-},
  * {@code -debug-}, {@code -static-devel-}), optionally reaching through a trailing {@code -redhat.bNN} qualifier used
- * by some older Windows builds.
+ * by some older Windows builds.</li>
+ * <li>Eclipse Temurin/Adoptium, where the version is the trailing {@code _<version>} run before the file extension such
+ * as {@code 25.0.3_9}, {@code 25.0.4.1_1}, {@code 25_36}.</li>
+ * </ul>
  */
 @Slf4j
 public class OpenJdkGenericPurlWrapperUtil extends GenericPurlWrapperUtil {
 
     /**
-     * Matches Red Hat OpenJDK and OpenJFX filenames. Deliberately case-sensitive so Temurin/Adoptium artifacts
-     * ({@code OpenJDK25U-...}) are left to the generic extractor.
+     * Matches Red Hat OpenJDK and OpenJFX filenames. Case-sensitive. Temurin/Adoptium filenames are matched separately
+     * by {@link #TEMURIN_NAME_PATTERN}.
      */
     private static final Pattern OPENJDK_NAME_PATTERN = Pattern
             .compile("^(?:java-.*-openjdk|java-openjdk|openjdk-|openjfx)");
@@ -55,6 +61,23 @@ public class OpenJdkGenericPurlWrapperUtil extends GenericPurlWrapperUtil {
      */
     private static final Pattern OPENJDK_VERSION_PATTERN = Pattern
             .compile("open(?:jdk|jfx)[a-z-]*?-(?<version>(?:\\d+|b\\d+)(?:[._-](?:\\d+|b\\d+))*(?:-redhat\\.b\\d+)?)");
+
+    /**
+     * Matches Eclipse Temurin/Adoptium filenames where the {@code OpenJDK&lt;major&gt;U-} prefix carries the major
+     * version ({@code OpenJDK25U-...}, {@code OpenJDK26U-...}).
+     */
+    private static final Pattern TEMURIN_NAME_PATTERN = Pattern.compile("^OpenJDK\\d+U-");
+
+    /**
+     * Decomposes a Temurin/Adoptium filename into three named groups:
+     * <ul>
+     * <li>{@code name}: the file prefix (everything before the {@code _<version>}</li>
+     * <li>{@code version}: the version run (a numerical sequence with delimiters {@code [._-]})</li>
+     * <li>{@code ext}: the extension ({@code .msi}, {@code .zip})</li>
+     * </ul>
+     */
+    private static final Pattern TEMURIN_FILENAME_PATTERN = Pattern
+            .compile("^(?<name>OpenJDK\\d+U-.*?)_(?<version>\\d+(?:[._-]\\d+)*(?:-[A-Za-z]+)?)(?<ext>\\.[A-Za-z].*)?$");
 
     public OpenJdkGenericPurlWrapperUtil(String purl) throws MalformedPackageURLException {
         super(purl);
@@ -69,15 +92,29 @@ public class OpenJdkGenericPurlWrapperUtil extends GenericPurlWrapperUtil {
         PackageURL p = this.getPackageURL();
         String fileName = p.getName();
 
-        Matcher matcher = OPENJDK_VERSION_PATTERN.matcher(fileName);
-        if (!matcher.find()) {
-            // Fall back to the generic strategies (e.g. plain semver names)
-            return super.getVersionedPurl();
+        // Temurin/Adoptium: compose the base name directly
+        Matcher temurinMatcher = TEMURIN_FILENAME_PATTERN.matcher(fileName);
+        if (temurinMatcher.find()) {
+            String baseName = temurinMatcher.group("name")
+                    + Objects.requireNonNullElse(temurinMatcher.group("ext"), "");
+            return getVersionedPurl(p, baseName, temurinMatcher.group("version"));
         }
 
-        String version = matcher.group("version");
-        String baseName = stripVersionFromName(fileName, matcher.start("version"), matcher.end("version"));
+        // Red Hat OpenJDK/OpenJFX: the version follows the openjdk/openjfx marker; strip it back out of the name.
+        Matcher openJdkMatcher = OPENJDK_VERSION_PATTERN.matcher(fileName);
+        if (openJdkMatcher.find()) {
+            String baseName = stripVersionFromName(
+                    fileName,
+                    openJdkMatcher.start("version"),
+                    openJdkMatcher.end("version"));
+            return getVersionedPurl(p, baseName, openJdkMatcher.group("version"));
+        }
 
+        // Fall back to the generic strategies (e.g. plain semver names)
+        return super.getVersionedPurl();
+    }
+
+    private PackageURL getVersionedPurl(PackageURL p, String baseName, String version) {
         try {
             return new PackageURL(
                     p.getType(),
@@ -97,6 +134,7 @@ public class OpenJdkGenericPurlWrapperUtil extends GenericPurlWrapperUtil {
     }
 
     public static boolean isOpenJdkPurl(String purlName) {
-        return purlName != null && OPENJDK_NAME_PATTERN.matcher(purlName).find();
+        return purlName != null
+                && (OPENJDK_NAME_PATTERN.matcher(purlName).find() || TEMURIN_NAME_PATTERN.matcher(purlName).find());
     }
 }
