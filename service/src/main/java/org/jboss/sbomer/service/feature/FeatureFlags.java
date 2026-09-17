@@ -57,6 +57,7 @@ public class FeatureFlags implements UnleashSubscriber {
     // Atlas
     public static final String TOGGLE_ATLAS_RELEASE_PUBLISH = "atlas-release-publish";
     public static final String TOGGLE_ATLAS_BUILD_PUBLISH = "atlas-build-publish";
+    public static final String TOGGLE_ATLAS_FORCE_V3 = "atlas-force-v3";
 
     // Errata
     public static final String TOGGLE_ERRATA_INTEGRATION = "errata-integration";
@@ -98,6 +99,9 @@ public class FeatureFlags implements UnleashSubscriber {
 
     @ConfigProperty(name = "SBOMER_FEATURE_ATLAS_PUBLISH_RELEASE_ENABLED", defaultValue = "false")
     boolean publishToAtlasRelease;
+
+    @ConfigProperty(name = "SBOMER_FEATURE_ATLAS_FORCE_V3_ENABLED", defaultValue = "false")
+    boolean atlasForceV3;
 
     @ConfigProperty(name = "SBOMER_FEATURE_ERRATA_INTEGRATION_ENABLED", defaultValue = "false")
     boolean errataIntegration;
@@ -165,6 +169,16 @@ public class FeatureFlags implements UnleashSubscriber {
      */
     public boolean atlasBuildPublish() {
         return unleash.isEnabled(TOGGLE_ATLAS_BUILD_PUBLISH, publishToAtlasBuild);
+    }
+
+    /**
+     * Returns {@code true} if uploads should always use the Atlas v3 API, bypassing the runtime server version
+     * detection. Intended to drop the version probe once every Atlas instance has been upgraded.
+     *
+     * @return {@code true} if the Atlas v3 API should be forced, {@code false} otherwise
+     */
+    public boolean atlasForceV3() {
+        return unleash.isEnabled(TOGGLE_ATLAS_FORCE_V3, atlasForceV3);
     }
 
     /**
@@ -293,6 +307,7 @@ public class FeatureFlags implements UnleashSubscriber {
                 TOGGLE_NOTIFY_ANALYSIS,
                 TOGGLE_ATLAS_BUILD_PUBLISH,
                 TOGGLE_ATLAS_RELEASE_PUBLISH,
+                TOGGLE_ATLAS_FORCE_V3,
                 TOGGLE_ERRATA_INTEGRATION,
                 TOGGLE_STANDARD_ERRATA_RPM_MANIFEST_GENERATION,
                 TOGGLE_STANDARD_ERRATA_IMAGE_MANIFEST_GENERATION,
