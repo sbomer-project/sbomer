@@ -21,17 +21,24 @@ import static org.jboss.sbomer.core.rest.faulttolerance.Constants.PNC_CLIENT_DEL
 import static org.jboss.sbomer.core.rest.faulttolerance.Constants.PNC_CLIENT_MAX_RETRIES;
 
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 import org.eclipse.microprofile.faulttolerance.Retry;
 import org.eclipse.microprofile.rest.client.annotation.ClientHeaderParam;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 import org.jboss.pnc.dto.DeliverableAnalyzerOperation;
 import org.jboss.pnc.dto.requests.DeliverablesAnalysisRequest;
+import org.jboss.sbomer.core.errors.ClientException;
+import org.jboss.sbomer.core.errors.ForbiddenException;
+import org.jboss.sbomer.core.errors.NotFoundException;
+import org.jboss.sbomer.core.errors.UnauthorizedException;
 import org.jboss.sbomer.core.rest.faulttolerance.RetryLogger;
 
 import io.quarkus.oidc.client.filter.OidcClientFilter;
+import io.quarkus.rest.client.reactive.ClientExceptionMapper;
 import io.smallrye.faulttolerance.api.BeforeRetry;
 import io.smallrye.faulttolerance.api.ExponentialBackoff;
+import io.smallrye.reactive.messaging.annotations.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -40,6 +47,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 @ApplicationScoped
 @ClientHeaderParam(name = "User-Agent", value = "SBOMer")
@@ -49,10 +57,13 @@ import jakarta.ws.rs.core.MediaType;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public interface PncClient {
-
     @POST
     @Path("/product-milestones/{id}/analyze-deliverables")
-    @Retry(maxRetries = PNC_CLIENT_MAX_RETRIES, delay = PNC_CLIENT_DELAY, delayUnit = ChronoUnit.SECONDS)
+    @Retry(
+            maxRetries = PNC_CLIENT_MAX_RETRIES,
+            delay = PNC_CLIENT_DELAY,
+            delayUnit = ChronoUnit.SECONDS,
+            abortOn = ClientException.class)
     @ExponentialBackoff
     @BeforeRetry(RetryLogger.class)
     DeliverableAnalyzerOperation analyzeDeliverables(
@@ -61,9 +72,27 @@ public interface PncClient {
 
     @GET
     @Path("/operations/deliverable-analyzer/{id}")
-    @Retry(maxRetries = PNC_CLIENT_MAX_RETRIES, delay = PNC_CLIENT_DELAY, delayUnit = ChronoUnit.SECONDS)
+    @Retry(
+            maxRetries = PNC_CLIENT_MAX_RETRIES,
+            delay = PNC_CLIENT_DELAY,
+            delayUnit = ChronoUnit.SECONDS,
+            abortOn = ClientException.class)
     @ExponentialBackoff
     @BeforeRetry(RetryLogger.class)
     DeliverableAnalyzerOperation getDeliverableAnalyzerOperation(@PathParam("id") String operationId);
 
+    @ClientExceptionMapper
+    @Blocking
+    static RuntimeException toException(Response response) {
+        String message = response.readEntity(String.class);
+
+        return switch (response.getStatus()) {
+            case 400 -> new ClientException("Bad request", List.of(message));
+            case 401 ->
+                new UnauthorizedException("Caller is unauthorized to access resource; {}", message, List.of(message));
+            case 403 -> new ForbiddenException("Caller is forbidden to access resource; {}", message, List.of(message));
+            case 404 -> new NotFoundException("Requested resource was not found; {}", message, List.of(message));
+            default -> null;
+        };
+    }
 }

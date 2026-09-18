@@ -35,6 +35,7 @@ import org.jboss.sbomer.core.dto.v1beta1.V1BaseBeta1RequestRecord;
 import org.jboss.sbomer.core.dto.v1beta1.V1Beta1RequestRecord;
 import org.jboss.sbomer.core.errors.ApplicationException;
 import org.jboss.sbomer.core.errors.ClientException;
+import org.jboss.sbomer.core.errors.NotFoundException;
 import org.jboss.sbomer.core.errors.ValidationException;
 import org.jboss.sbomer.core.features.sbom.config.Config;
 import org.jboss.sbomer.core.features.sbom.config.DeliverableAnalysisConfig;
@@ -668,6 +669,11 @@ public class SbomService {
             return pncClient.analyzeDeliverables(
                     config.getMilestoneId(),
                     DeliverablesAnalysisRequest.builder().deliverablesUrls(config.getDeliverableUrls()).build());
+        } catch (NotFoundException ex) {
+            throw new ClientException(
+                    "Deliverable analysis not found for milestone id '{}'",
+                    config.getMilestoneId(),
+                    ex);
         } catch (ClientException ex) {
             throw new ApplicationException("Operation could not be retrieved because PNC responded with an error", ex);
         }
