@@ -249,6 +249,17 @@ sbomer:
       # The interval on which the scheduler will run.
       sync-interval: 15s
 
+    generation-reaper:
+      # Whether the reaper that fails generations stuck in a non-terminal status is enabled.
+      enabled: true
+
+      # The interval on which the reaper will run.
+      interval: 10m
+
+      # The maximum total duration a generation may spend in a non-terminal status (measured from creation)
+      # before the reaper fails it and unsticks its parent request event.
+      timeout: 24h
+
   leader:
     # Duration in seconds that non-leaders will wait before trying to acquire leadership if no renewal occurs.
     lease-duration: 30
