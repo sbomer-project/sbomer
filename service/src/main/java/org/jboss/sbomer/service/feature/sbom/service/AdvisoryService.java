@@ -216,13 +216,13 @@ public class AdvisoryService {
         }
 
         ValidationResult validationResult = notesSchemaValidator.validate(erratum);
+
         if (!validationResult.isValid()) {
-
             String reason = String.format(
-                    "Text-Only Errata Advisory '%s'(%s) does not have a valid Json-formatted notes field",
+                    "Text-Only Errata Advisory '%s'(%s) does not have a valid Json-formatted notes field: %s",
                     erratum.getDetails().get().getFulladvisory(),
-                    erratum.getDetails().get().getId());
-
+                    erratum.getDetails().get().getId(),
+                    String.join(", ", validationResult.getErrors()));
             return doIgnoreRequest(requestEvent, reason);
         }
 
