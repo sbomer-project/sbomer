@@ -11,6 +11,7 @@ import java.net.URL;
 import java.util.List;
 import java.util.Optional;
 
+import org.apache.commons.lang3.StringUtils;
 import org.cyclonedx.model.Ancestors;
 import org.cyclonedx.model.Bom;
 import org.cyclonedx.model.Component;
@@ -37,6 +38,8 @@ import org.mockito.Mockito;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.packageurl.MalformedPackageURLException;
+import com.github.packageurl.PackageURL;
 import com.redhat.red.build.koji.KojiClientException;
 import com.redhat.red.build.koji.model.xmlrpc.KojiBuildInfo;
 
@@ -127,7 +130,8 @@ class DefaultProcessorTest {
 
         assertEquals(192, processed.getComponents().size());
 
-        Component rpmComponent = getComponent(processed, "pkg:rpm/redhat/audit-libs@3.0.7-103.el9?arch=x86_64")
+        Component rpmComponent = SbomUtils
+                .findComponentWithPurl("pkg:rpm/redhat/audit-libs@3.0.7-103.el9?arch=x86_64", processed)
                 .orElseThrow();
 
         assertNotNull(rpmComponent.getSupplier());
@@ -187,7 +191,7 @@ class DefaultProcessorTest {
 
         Bom processed = defaultProcessor.process(bom);
 
-        Component updatedComponent = getComponent(processed, artifact.getPurl()).orElseThrow();
+        Component updatedComponent = SbomUtils.findComponentWithPurl(artifact.getPurl(), processed).orElseThrow();
         Dependency updatedDependency = getDependency(artifact.getPurl(), processed.getDependencies()).orElseThrow();
 
         assertEquals(193, processed.getComponents().size());
@@ -199,13 +203,74 @@ class DefaultProcessorTest {
     }
 
     @Test
+    void testAddMrrcWithRelocatedPurl() throws IOException, MalformedPackageURLException {
+        PncService pncServiceMock = Mockito.mock(PncService.class);
+        KojiService kojiServiceMock = Mockito.mock(KojiService.class);
+        PackageURL packageURL = new PackageURL("pkg:maven/org.apache.logging.log4j/log4j?type=pom");
+
+        // The original PURL is upstream, but the PNC artifact sha1 matches a redhat version
+        // Cause the PURL lookup to miss and return the redhat version
+        String version = "2.19.0.redhat-00001";
+        String sha1 = "6eb3200cd599d4d4b57f467f3f909890a094e7fa";
+        Artifact artifact = Artifact.builder()
+                .purl(packageURL.toBuilder().withVersion(version).build().toString())
+                .sha1(sha1)
+                .build();
+        when(pncServiceMock.getArtifact(null, Optional.empty(), Optional.of(artifact.getSha1()), Optional.empty()))
+                .thenReturn(artifact);
+        DefaultProcessor defaultProcessor = new DefaultProcessor(pncServiceMock, kojiServiceMock);
+        String upstreamVersion = version.replaceAll("[.-]redhat-\\d+$", StringUtils.EMPTY);
+        String upstreamPurl = packageURL.toBuilder().withVersion(upstreamVersion).build().toString();
+
+        // First case: a component purl that was relocated to the upstream version, but matches a redhat artifact by
+        // sha1, should match as redhat and thus gain the MRRC qualifier
+        Bom bom = SbomUtils.fromString(TestResources.asString("boms/image-after-adjustments.json"));
+        assertNotNull(bom);
+        Component component = SbomUtils.createComponent(
+                packageURL.getNamespace(),
+                packageURL.getName(),
+                version,
+                null,
+                upstreamPurl,
+                Component.Type.LIBRARY);
+        component.addHash(new Hash(Hash.Algorithm.SHA1, artifact.getSha1()));
+        bom.addComponent(component);
+        Bom processed = defaultProcessor.process(bom);
+        Component updatedComponent = SbomUtils.findComponentWithPurl(artifact.getPurl(), processed).orElseThrow();
+        List<String> distributionUrls = SbomUtils.getExternalReferences(updatedComponent, Type.DISTRIBUTION)
+                .stream()
+                .map(ExternalReference::getUrl)
+                .toList();
+
+        // Check that the redhat rebuild was recognized and its metadata was enriched with exactly the MRRC URL
+        assertEquals(List.of(Constants.MRRC_URL), distributionUrls);
+
+        // Second case: an upstream component purl should be left alone
+        Bom bom2 = SbomUtils.fromString(TestResources.asString("boms/image-after-adjustments.json"));
+        assertNotNull(bom2);
+        Component upstreamComponent = SbomUtils.createComponent(
+                packageURL.getNamespace(),
+                packageURL.getName(),
+                upstreamVersion,
+                null,
+                upstreamPurl,
+                Component.Type.LIBRARY);
+        bom2.addComponent(upstreamComponent);
+
+        Bom processedSecond = defaultProcessor.process(bom2);
+
+        // Check that the upstream purl is still there
+        assertTrue(SbomUtils.findComponentWithPurl(upstreamPurl, processedSecond).isPresent());
+    }
+
+    @Test
     void testAddMissingNpmDependencies() throws IOException {
         DefaultProcessor defaultProcessor = mockForAddMissingNpmDependencies();
 
         // With
         Bom bom = SbomUtils.fromString(TestResources.asString("boms/pnc-build.json"));
         assertNotNull(bom);
-        Optional<Component> missingComponent = getComponent(bom, "pkg:npm/once@1.4.0");
+        Optional<Component> missingComponent = SbomUtils.findComponentWithPurl("pkg:npm/once@1.4.0", bom);
         Optional<Dependency> missingDependency = getDependency("pkg:npm/once@1.4.0", bom.getDependencies());
 
         assertTrue(missingComponent.isEmpty());
@@ -245,7 +310,7 @@ class DefaultProcessorTest {
                 "pkg:maven/org.keycloak/keycloak-parent@24.0.6.redhat-00001?type=pom",
                 processed.getDependencies()).orElseThrow();
 
-        Component componentOnce = getComponent(processed, "pkg:npm/once@1.4.0").orElseThrow();
+        Component componentOnce = SbomUtils.findComponentWithPurl("pkg:npm/once@1.4.0", processed).orElseThrow();
         ExternalReference onceArtifact = SbomUtils
                 .getExternalReferences(componentOnce, Type.BUILD_SYSTEM, Constants.SBOM_RED_HAT_PNC_ARTIFACT_ID)
                 .get(0);
@@ -256,9 +321,9 @@ class DefaultProcessorTest {
         assertEquals("once", componentOnce.getName());
         assertEquals("1.4.0", componentOnce.getVersion());
 
-        Component componentKogito = getComponent(
-                processed,
-                "pkg:npm/%40redhat/kogito-tooling-keyboard-shortcuts@0.9.0-2").orElseThrow();
+        Component componentKogito = SbomUtils
+                .findComponentWithPurl("pkg:npm/%40redhat/kogito-tooling-keyboard-shortcuts@0.9.0-2", processed)
+                .orElseThrow();
         assertNotNull(componentKogito.getSupplier());
         assertEquals("Red Hat", componentKogito.getSupplier().getName());
         assertEquals("Red Hat", componentKogito.getPublisher());
@@ -295,10 +360,6 @@ class DefaultProcessorTest {
 
     private static Optional<Dependency> getDependency(String ref, List<Dependency> dependencies) {
         return dependencies.stream().filter(d -> d.getRef().equals(ref)).findFirst();
-    }
-
-    private static Optional<Component> getComponent(Bom bom, String purl) {
-        return bom.getComponents().stream().filter(c -> purl.equals(c.getPurl())).findFirst();
     }
 
     @Test
