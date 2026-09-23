@@ -19,6 +19,8 @@ package org.jboss.sbomer.service.test.integ.feature.sbom;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -52,6 +54,7 @@ import org.jboss.sbomer.service.test.utils.QuarkusTransactionalTest;
 import org.jboss.sbomer.service.test.utils.umb.TestUmbProfile;
 import org.junit.jupiter.api.Test;
 
+import cz.jirutka.rsql.parser.RSQLParserException;
 import io.quarkus.panache.common.Parameters;
 import io.quarkus.test.junit.TestProfile;
 import jakarta.annotation.PostConstruct;
@@ -83,6 +86,11 @@ class SbomGenerationRequestRepositoryTest {
 
     static final String REQUEST_ID_2_DELETE = "FFAASSBBDD";
     static final String BUILD_ID_2_DELETE = "RRYT3LBXDVYACDD";
+
+    static final String REQUEST_ID_LIKE = "AASSBB";
+
+    static final String REQUEST_ID_EQ = "589A58D72C4D453";
+    static final String BUILD_ID_EQ = "BBHVPNKYCYIAA";
 
     static Path sbomPath(String fileName) {
         return Paths.get("src", "test", "resources", "sboms", fileName);
@@ -221,6 +229,52 @@ class SbomGenerationRequestRepositoryTest {
         assertEquals(OPERATION_ID, request.getIdentifier());
         assertEquals(GenerationRequestType.OPERATION, request.getType());
         assertEquals("FINISHED".toLowerCase(), request.getStatus().toName());
+    }
+
+    @Test
+    void testRSQLWithMultipleLikes() {
+        List<SbomGenerationRequest> requests = sbomGenerationRequestRepository.search(
+                QueryParameters.builder()
+                        .rsqlQuery("reason=like='%it ucceeded%' and reason=like='%t ucceede%'")
+                        .pageIndex(0)
+                        .pageSize(10)
+                        .build());
+        assertEquals(1, requests.size());
+        assertEquals(REQUEST_ID_LIKE, requests.get(0).getId());
+        List<SbomGenerationRequest> requests2 = sbomGenerationRequestRepository.search(
+                QueryParameters.builder()
+                        .rsqlQuery("reason=like='%it ucceeded%' and reason=like='%foo%'")
+                        .pageIndex(0)
+                        .pageSize(10)
+                        .build());
+        assertTrue(requests2.isEmpty());
+    }
+
+    @Test
+    void testRSQLLikeWithUnquotedWhitespace() {
+        QueryParameters parameters = QueryParameters.builder()
+                .rsqlQuery("reason=like=%it succeeded%")
+                .pageIndex(0)
+                .pageSize(10)
+                .build();
+        assertThrows(RSQLParserException.class, () -> sbomGenerationRequestRepository.search(parameters));
+    }
+
+    @Test
+    void testRSQLEqValueIsNotRewritten() {
+        SbomGenerationRequest request = SbomGenerationRequest.builder()
+                .withId(REQUEST_ID_EQ)
+                .withIdentifier(BUILD_ID_EQ)
+                .withCreationTime(Instant.now())
+                .withType(GenerationRequestType.BUILD)
+                .withStatus(SbomGenerationStatus.FINISHED)
+                .withReason("%exact match%")
+                .build();
+        sbomGenerationRequestRepository.persist(request);
+        List<SbomGenerationRequest> requests = sbomGenerationRequestRepository.search(
+                QueryParameters.builder().rsqlQuery("reason=eq='%exact match%'").pageIndex(0).pageSize(10).build());
+        assertEquals(1, requests.size());
+        assertEquals(REQUEST_ID_EQ, requests.get(0).getId());
     }
 
     @Test
