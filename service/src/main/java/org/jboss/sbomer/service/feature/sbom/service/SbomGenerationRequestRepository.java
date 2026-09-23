@@ -17,9 +17,11 @@
  */
 package org.jboss.sbomer.service.feature.sbom.service;
 
+import java.time.Instant;
 import java.util.List;
 
 import org.jboss.sbomer.core.errors.NotFoundException;
+import org.jboss.sbomer.service.feature.sbom.k8s.model.SbomGenerationStatus;
 import org.jboss.sbomer.service.feature.sbom.model.Sbom;
 import org.jboss.sbomer.service.feature.sbom.model.SbomGenerationRequest;
 import org.jboss.sbomer.service.rest.criteria.CriteriaAwareRepository;
@@ -64,5 +66,23 @@ public class SbomGenerationRequestRepository extends CriteriaAwareRepository<Sbo
     @Transactional
     public List<SbomGenerationRequest> listByIdentifier(String identifier) {
         return find("identifier = ?1", identifier).list();
+    }
+
+    /**
+     * Finds generations that are stuck: they have not reached a final status ({@code FINISHED}/{@code FAILED}) and were
+     * created before the given {@code cutoff}. Used by the
+     * {@link org.jboss.sbomer.service.scheduler.GenerationRequestReaper} to fail generations that never terminated
+     * (e.g. because a Tekton TaskRun was never created or its terminal event was never observed), which otherwise pin
+     * their parent request event at "in progress" indefinitely.
+     *
+     * @param cutoff generations created strictly before this instant are considered
+     * @return the stuck generations, oldest first
+     */
+    @Transactional
+    public List<SbomGenerationRequest> findStuckGenerations(Instant cutoff) {
+        return find(
+                "status not in ?1 and creationTime < ?2 order by creationTime asc",
+                List.of(SbomGenerationStatus.FINISHED, SbomGenerationStatus.FAILED),
+                cutoff).list();
     }
 }
