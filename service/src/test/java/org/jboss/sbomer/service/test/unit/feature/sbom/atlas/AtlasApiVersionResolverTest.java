@@ -99,13 +99,14 @@ class AtlasApiVersionResolverTest {
     }
 
     @Test
-    void resolvedVersionIsCached() {
+    void versionIsProbedOnEachResolve() {
         when(buildInfoClient.info()).thenReturn(info("0.6.0"));
 
         assertEquals(V3, resolver.resolve(false));
         assertEquals(V3, resolver.resolve(false));
 
-        verify(buildInfoClient, times(1)).info();
+        // The version is not cached; each publish batch re-probes the server so a fallback is never pinned.
+        verify(buildInfoClient, times(2)).info();
     }
 
     @Test

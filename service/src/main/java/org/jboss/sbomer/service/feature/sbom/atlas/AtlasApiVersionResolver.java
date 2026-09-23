@@ -17,11 +17,6 @@
  */
 package org.jboss.sbomer.service.feature.sbom.atlas;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.sbomer.service.feature.FeatureFlags;
 
@@ -35,7 +30,8 @@ import lombok.extern.slf4j.Slf4j;
  * <p>
  * Trustify moved its API from {@code /api/v2/} to {@code /api/v3/} in the 0.5.0 release. During the rollout SBOMer must
  * talk to whichever version a given Atlas instance runs, so the version is discovered at runtime via the
- * {@code /.well-known/trustify} endpoint and cached per instance.
+ * {@code /.well-known/trustify} endpoint. The probe is performed once per publish batch, against the same host the
+ * manifests are uploaded to, so it is not cached.
  * <p>
  * The {@code atlas-force-v3} feature flag bypasses the network probe entirely and always selects {@code v3}; this lets
  * us drop the check once every Atlas instance has been upgraded.
@@ -55,9 +51,6 @@ public class AtlasApiVersionResolver {
     static final int V3_MIN_MAJOR = 0;
     static final int V3_MIN_MINOR = 5;
 
-    /** How long a resolved version is trusted before the server is probed again. */
-    static final Duration CACHE_TTL = Duration.ofHours(1);
-
     @Inject
     @RestClient
     AtlasBuildInfoClient atlasBuildInfoClient;
@@ -68,14 +61,6 @@ public class AtlasApiVersionResolver {
 
     @Inject
     FeatureFlags featureFlags;
-
-    private record CachedVersion(String apiVersion, Instant resolvedAt) {
-        boolean isExpired() {
-            return Instant.now().isAfter(resolvedAt.plus(CACHE_TTL));
-        }
-    }
-
-    private final Map<Boolean, CachedVersion> cache = new ConcurrentHashMap<>();
 
     /**
      * Returns the Atlas API version segment ({@value #V2} or {@value #V3}) to use for the given instance.
@@ -89,14 +74,7 @@ public class AtlasApiVersionResolver {
             return V3;
         }
 
-        CachedVersion cached = cache.get(isRelease);
-        if (cached != null && !cached.isExpired()) {
-            return cached.apiVersion();
-        }
-
-        String apiVersion = detect(isRelease);
-        cache.put(isRelease, new CachedVersion(apiVersion, Instant.now()));
-        return apiVersion;
+        return detect(isRelease);
     }
 
     private String detect(boolean isRelease) {
