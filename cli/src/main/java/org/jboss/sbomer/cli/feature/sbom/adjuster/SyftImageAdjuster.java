@@ -47,6 +47,7 @@ import org.jboss.sbomer.core.errors.ApplicationException;
 import org.jboss.sbomer.core.features.sbom.Constants;
 import org.jboss.sbomer.core.features.sbom.config.SyftImageConfig;
 import org.jboss.sbomer.core.features.sbom.enums.GeneratorType;
+import org.jboss.sbomer.core.features.sbom.koji.RemoteSource;
 import org.jboss.sbomer.core.features.sbom.utils.ObjectMapperProvider;
 import org.jboss.sbomer.core.features.sbom.utils.PurlSanitizer;
 import org.jboss.sbomer.core.features.sbom.utils.SbomUtils;
@@ -158,7 +159,10 @@ public class SyftImageAdjuster extends AbstractAdjuster {
                     "Adding any missing component or dependency to the main manifest, from sources manifest {}",
                     sourcesManifestPath.toAbsolutePath());
             Bom sourcesBom = SbomUtils.fromPath(sourcesManifestPath);
-            SbomUtils.addMissingComponentsAndDependencies(bom, sourcesBom);
+
+            if (sourcesBom != null) {
+                SbomUtils.addMissingComponentsAndDependencies(bom, sourcesBom);
+            }
         } else {
             log.warn(
                     "Sources manifest is empty, there are no components nor dependencies to add to the main manifest...");
@@ -169,7 +173,8 @@ public class SyftImageAdjuster extends AbstractAdjuster {
                     sourcesMetadataPath.toAbsolutePath());
             Component standardLibraryComponent = SbomUtils.findGolangStandardLibraryComponent(bom);
             if (standardLibraryComponent != null) {
-                Set<Map> cachitoDependencies = SbomUtils.readCachitoDependencies(sourcesMetadataPath);
+                Set<RemoteSource.Dependency> cachitoDependencies = SbomUtils
+                        .readCachitoDependencies(sourcesMetadataPath);
                 SbomUtils.addGolangStandardLibraryFeatures(bom, standardLibraryComponent, cachitoDependencies);
             } else {
                 log.warn(

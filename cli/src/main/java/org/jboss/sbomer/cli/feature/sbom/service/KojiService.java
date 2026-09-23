@@ -51,9 +51,9 @@ import org.jboss.pnc.build.finder.koji.ClientSession;
 import org.jboss.pnc.build.finder.koji.KojiBuild;
 import org.jboss.pnc.dto.Artifact;
 import org.jboss.sbomer.cli.feature.sbom.client.KojiDownloadClient;
-import org.jboss.sbomer.cli.feature.sbom.client.RemoteSource;
 import org.jboss.sbomer.cli.feature.sbom.utils.buildfinder.FinderStatus;
 import org.jboss.sbomer.core.errors.ApplicationException;
+import org.jboss.sbomer.core.features.sbom.koji.RemoteSource;
 import org.jboss.sbomer.core.features.sbom.utils.ObjectMapperProvider;
 
 import com.redhat.red.build.koji.KojiClientException;
