@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -23,6 +25,7 @@ import org.jboss.sbomer.core.errors.ClientException;
 import org.jboss.sbomer.core.features.sbom.utils.SbomUtils;
 import org.jboss.sbomer.core.test.TestResources;
 import org.jboss.sbomer.service.feature.FeatureFlags;
+import org.jboss.sbomer.service.feature.sbom.atlas.AtlasApiVersionResolver;
 import org.jboss.sbomer.service.feature.sbom.atlas.AtlasBuildClient;
 import org.jboss.sbomer.service.feature.sbom.atlas.AtlasClient;
 import org.jboss.sbomer.service.feature.sbom.atlas.AtlasHandler;
@@ -34,10 +37,12 @@ import org.junit.jupiter.api.Test;
 import com.fasterxml.jackson.databind.JsonNode;
 
 class AtlasHandlerTest {
+    static final String API_VERSION = "v3";
+
     static class AtlasHandlerAlt extends AtlasHandler {
         @Override
-        public void uploadManifest(Sbom sbom, AtlasClient atlasClient) throws ApplicationException {
-            super.uploadManifest(sbom, atlasClient);
+        public void uploadManifest(Sbom sbom, AtlasClient atlasClient, String apiVersion) throws ApplicationException {
+            super.uploadManifest(sbom, atlasClient, apiVersion);
         }
     }
 
@@ -71,6 +76,10 @@ class AtlasHandlerTest {
         when(featureFlags.atlasBuildPublish()).thenReturn(true);
         atlasHandler.setFeatureFlags(featureFlags);
 
+        AtlasApiVersionResolver apiVersionResolver = mock(AtlasApiVersionResolver.class);
+        when(apiVersionResolver.resolve(anyBoolean())).thenReturn(API_VERSION);
+        atlasHandler.setApiVersionResolver(apiVersionResolver);
+
         atlasHandler.setAtlasBuildClient(atlasBuildClient);
         atlasHandler.setAtlasReleaseClient(atlasReleaseClient);
     }
@@ -98,10 +107,10 @@ class AtlasHandlerTest {
         atlasHandler.publishBuildManifests(sboms);
         atlasHandler.publishReleaseManifests(sboms);
 
-        verify(atlasBuildClient, times(1)).upload(eq(LABELS), eq(sbomA.getSbom()));
-        verify(atlasBuildClient, times(1)).upload(eq(LABELS), eq(sbomB.getSbom()));
-        verify(atlasReleaseClient, times(1)).upload(eq(LABELS), eq(sbomA.getSbom()));
-        verify(atlasReleaseClient, times(1)).upload(eq(LABELS), eq(sbomB.getSbom()));
+        verify(atlasBuildClient, times(1)).upload(eq(API_VERSION), eq(LABELS), eq(sbomA.getSbom()));
+        verify(atlasBuildClient, times(1)).upload(eq(API_VERSION), eq(LABELS), eq(sbomB.getSbom()));
+        verify(atlasReleaseClient, times(1)).upload(eq(API_VERSION), eq(LABELS), eq(sbomA.getSbom()));
+        verify(atlasReleaseClient, times(1)).upload(eq(API_VERSION), eq(LABELS), eq(sbomB.getSbom()));
     }
 
     @Test
@@ -110,8 +119,10 @@ class AtlasHandlerTest {
         List<Sbom> sboms = List.of(sbom);
         String reason = "A reason";
 
-        doThrow(new ClientException(reason)).when(atlasBuildClient).upload(any(Map.class), any(JsonNode.class));
-        doThrow(new ClientException(reason)).when(atlasReleaseClient).upload(any(Map.class), any(JsonNode.class));
+        doThrow(new ClientException(reason)).when(atlasBuildClient)
+                .upload(anyString(), any(Map.class), any(JsonNode.class));
+        doThrow(new ClientException(reason)).when(atlasReleaseClient)
+                .upload(anyString(), any(Map.class), any(JsonNode.class));
 
         ApplicationException ex1 = assertThrows(
                 ApplicationException.class,
@@ -120,8 +131,8 @@ class AtlasHandlerTest {
                 ApplicationException.class,
                 () -> atlasHandler.publishReleaseManifests(sboms));
 
-        verify(atlasBuildClient, times(1)).upload(eq(LABELS), eq(sbom.getSbom()));
-        verify(atlasReleaseClient, times(1)).upload(eq(LABELS), eq(sbom.getSbom()));
+        verify(atlasBuildClient, times(1)).upload(eq(API_VERSION), eq(LABELS), eq(sbom.getSbom()));
+        verify(atlasReleaseClient, times(1)).upload(eq(API_VERSION), eq(LABELS), eq(sbom.getSbom()));
 
         String message = "Unable to store '" + sbom.getId() + "' manifest in Atlas, purl: '" + sbom.getRootPurl()
                 + "': " + reason;

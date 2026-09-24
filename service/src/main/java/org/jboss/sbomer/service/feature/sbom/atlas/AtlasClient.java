@@ -35,15 +35,19 @@ import io.smallrye.faulttolerance.api.ExponentialBackoff;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 
 /**
  * A client for the Atlas (instance of the Trusted Profile Analyzer).
+ * <p>
+ * The API version segment ({@code v2}/{@code v3}) is templated so the caller can select the appropriate version at
+ * runtime; see {@link AtlasApiVersionResolver}.
  */
 
-@Path("/api/v2/sbom")
+@Path("/api/{apiVersion}/sbom")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public interface AtlasClient {
@@ -57,6 +61,9 @@ public interface AtlasClient {
             durationUnit = ChronoUnit.SECONDS)
     @ExponentialBackoff(maxDelay = ATLAS_CLIENT_BACKOFF_MAX_DELAY, maxDelayUnit = ChronoUnit.SECONDS)
     @BeforeRetry(RetryLogger.class)
-    void upload(@QueryParam("labels") Map<String, String> labels, JsonNode bom);
+    void upload(
+            @PathParam("apiVersion") String apiVersion,
+            @QueryParam("labels") Map<String, String> labels,
+            JsonNode bom);
 
 }
