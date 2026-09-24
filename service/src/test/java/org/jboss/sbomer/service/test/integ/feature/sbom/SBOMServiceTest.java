@@ -21,20 +21,29 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collection;
+import java.util.List;
 
+import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.sbomer.core.dto.BaseSbomRecord;
+import org.jboss.sbomer.core.errors.ClientException;
+import org.jboss.sbomer.core.errors.NotFoundException;
+import org.jboss.sbomer.core.features.sbom.config.DeliverableAnalysisConfig;
 import org.jboss.sbomer.core.features.sbom.enums.GenerationRequestType;
 import org.jboss.sbomer.core.features.sbom.rest.Page;
 import org.jboss.sbomer.service.feature.sbom.model.Sbom;
 import org.jboss.sbomer.service.feature.sbom.model.SbomGenerationRequest;
 import org.jboss.sbomer.service.feature.sbom.service.SbomService;
+import org.jboss.sbomer.service.pnc.PncClient;
 import org.jboss.sbomer.service.test.utils.umb.TestUmbProfile;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
+import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
@@ -44,11 +53,14 @@ import lombok.extern.slf4j.Slf4j;
 @TestProfile(TestUmbProfile.class)
 @Slf4j
 class SBOMServiceTest {
+    private static final String INITIAL_BUILD_ID = "ARYT3LBXDVYAC";
 
     @Inject
     SbomService sbomService;
 
-    private static final String INITIAL_BUILD_ID = "ARYT3LBXDVYAC";
+    @InjectMock
+    @RestClient
+    PncClient pncClient;
 
     private static final String GRAPHQL_PURL = "pkg:maven/org.eclipse.microprofile.graphql/microprofile-graphql-parent@1.1.0.redhat-00008?type=pom";
 
@@ -90,6 +102,22 @@ class SBOMServiceTest {
         }
 
         assertNotNull(foundSbom);
+    }
+
+    @Test
+    void shouldTranslateNotFoundException() {
+        Mockito.when(pncClient.analyzeDeliverables(Mockito.eq(INITIAL_BUILD_ID), Mockito.any()))
+                .thenThrow(new NotFoundException("Requested resource was not found"));
+        DeliverableAnalysisConfig config = DeliverableAnalysisConfig.builder()
+                .withMilestoneId(INITIAL_BUILD_ID)
+                .withDeliverableUrls(List.of("https://host.com/path/to/first.zip"))
+                .build();
+        ClientException ex = assertThrows(ClientException.class, () -> sbomService.doAnalyzeDeliverables(config));
+        assertFalse(
+                ex instanceof NotFoundException,
+                "NotFoundException in PNC should not be NotFoundException in SBOMer");
+        assertEquals(400, ex.getCode());
+        assertTrue(ex.getMessage().contains(INITIAL_BUILD_ID));
     }
 
     @Nested
