@@ -41,6 +41,7 @@ import org.jboss.sbomer.service.pnc.PncClient;
 import org.jboss.sbomer.service.test.utils.umb.TestUmbProfile;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
@@ -56,9 +57,6 @@ class SBOMServiceTest {
 
     @Inject
     SbomService sbomService;
-
-    @Inject
-    SbomRepository sbomRepository;
 
     @InjectMock
     @RestClient
