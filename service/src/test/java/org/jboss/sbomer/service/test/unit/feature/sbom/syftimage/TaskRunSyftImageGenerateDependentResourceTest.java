@@ -62,7 +62,7 @@ class TaskRunSyftImageGenerateDependentResourceTest {
         assertEquals("sbom-request-oneone-1-generate", desired.getMetadata().getName());
         assertEquals("sbomer-sa", desired.getSpec().getServiceAccountName());
         assertEquals(Duration.parse("6h"), desired.getSpec().getTimeout());
-        assertEquals(4, desired.getSpec().getParams().size());
+        assertEquals(5, desired.getSpec().getParams().size());
 
         Param param = desired.getSpec().getParams().get(0);
         assertEquals("image", param.getName());
@@ -79,6 +79,10 @@ class TaskRunSyftImageGenerateDependentResourceTest {
         param = desired.getSpec().getParams().get(3);
         assertEquals("rpms", param.getName());
         assertEquals("true", param.getValue().getStringVal());
+
+        param = desired.getSpec().getParams().get(4);
+        assertEquals("sources-retention", param.getName());
+        assertEquals("false", param.getValue().getStringVal());
 
         assertEquals("sbomer-generate-image-syft", desired.getSpec().getTaskRef().getName());
 
@@ -109,6 +113,30 @@ class TaskRunSyftImageGenerateDependentResourceTest {
 
         Param param = desired.getSpec().getParams().get(3);
         assertEquals("rpms", param.getName());
+        assertEquals("true", param.getValue().getStringVal());
+    }
+
+    @Test
+    void sourcesRetentionParamReflectsFeatureFlag() {
+        FeatureFlags mockFeatureFlags = Mockito.mock(FeatureFlags.class);
+        when(mockFeatureFlags.syftManifestOptEnabled()).thenReturn(false);
+        when(mockFeatureFlags.syftSourcesRetentionEnabled()).thenReturn(true);
+
+        TaskRunSyftImageGenerateDependentResourceAlt res = new TaskRunSyftImageGenerateDependentResourceAlt(
+                mockFeatureFlags);
+
+        GenerationRequest generationRequest = new GenerationRequestBuilder(GenerationRequestType.CONTAINERIMAGE)
+                .withId("oneone")
+                .withIdentifier("image-name")
+                .withConfig(new SyftImageConfig())
+                .build();
+
+        Context<GenerationRequest> mockedContext = Mockito.mock(Context.class);
+
+        TaskRun desired = res.desired(generationRequest, mockedContext);
+
+        Param param = desired.getSpec().getParams().get(4);
+        assertEquals("sources-retention", param.getName());
         assertEquals("true", param.getValue().getStringVal());
     }
 }

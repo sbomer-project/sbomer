@@ -103,8 +103,8 @@ class SyftImageAdjusterTest {
 
         Bom adjusted = adjuster.adjust(bom);
 
-        // The source-manifest components carry source-relative locations, so they are retained even though
-        // the image 'paths' filter only allows an image prefix (SBOMER-583).
+        // Components merged from the sources manifest are retained regardless of the image 'paths' filter,
+        // which only describes absolute image locations, so the source components survive (SBOMER-583).
         assertEquals(9, adjusted.getComponents().size());
         assertEquals(9, adjusted.getDependencies().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(adjusted)).size());
@@ -176,8 +176,8 @@ class SyftImageAdjusterTest {
 
         Bom adjusted = adjuster.adjust(bom);
 
-        // The source-manifest components carry source-relative locations, so they are retained even though
-        // the image 'paths' filter only allows an image prefix (SBOMER-583).
+        // Components merged from the sources manifest are retained regardless of the image 'paths' filter,
+        // which only describes absolute image locations, so the source components survive (SBOMER-583).
         assertEquals(11, adjusted.getComponents().size());
         assertEquals(11, adjusted.getDependencies().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(adjusted)).size());
@@ -266,8 +266,67 @@ class SyftImageAdjusterTest {
     // https://issues.redhat.com/browse/SBOMER-583
     @Test
     void shouldRetainSourceComponentsWhenImagePathScoped() throws IOException {
-        // A sources manifest carrying an npm dependency with a source-relative location, as produced by
-        // scanning the build's Cachito remote sources. This mirrors the reporter's dropped packages.
+        // A sources manifest carrying an npm dependency and a golang dependency, both with source-relative
+        // locations, as produced by scanning the build's Cachito remote sources. The npm entry mirrors the
+        // reporter's dropped packages; the golang entry pins that the exemption spans ecosystems.
+        String sourcesManifest = """
+                {
+                  "bomFormat": "CycloneDX",
+                  "specVersion": "1.6",
+                  "version": 1,
+                  "metadata": {
+                    "component": { "bom-ref": "source-archive", "type": "file", "name": "remote-source.tar.gz" }
+                  },
+                  "components": [
+                    {
+                      "bom-ref": "pkg:npm/dompurify@3.4.11",
+                      "type": "library",
+                      "name": "dompurify",
+                      "version": "3.4.11",
+                      "purl": "pkg:npm/dompurify@3.4.11",
+                      "properties": [
+                        { "name": "syft:package:type", "value": "npm" },
+                        { "name": "syft:location:0:path", "value": "app/ui/ui-docs/package-lock.json" }
+                      ]
+                    },
+                    {
+                      "bom-ref": "pkg:golang/example.com/tool@v1.0.0",
+                      "type": "library",
+                      "name": "tool",
+                      "version": "v1.0.0",
+                      "purl": "pkg:golang/example.com/tool@v1.0.0",
+                      "properties": [
+                        { "name": "syft:package:type", "value": "go-module" },
+                        { "name": "syft:location:0:path", "value": "app/go.mod" }
+                      ]
+                    }
+                  ]
+                }
+                """;
+        Path npmSourcesPath = tmpDir.resolve("npm-sources.json");
+        Files.writeString(npmSourcesPath, sourcesManifest);
+
+        // Image scan scoped to /opt, as when the syft-manifest-opt feature flag is enabled. None of the
+        // image components live under /opt, but the npm source component must not be filtered by this path.
+        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, List.of("/opt"), false, npmSourcesPath, null);
+
+        Bom adjusted = adjuster.adjust(bom);
+
+        assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(adjusted)).size());
+        assertTrue(
+                adjusted.getComponents().stream().anyMatch(c -> "pkg:npm/dompurify@3.4.11".equals(c.getPurl())),
+                "The npm component merged from the sources manifest should survive the image '/opt' path filter");
+        assertTrue(
+                adjusted.getComponents()
+                        .stream()
+                        .anyMatch(c -> "pkg:golang/example.com/tool@v1.0.0".equals(c.getPurl())),
+                "A source component of any ecosystem should survive the image '/opt' path filter");
+    }
+
+    // https://issues.redhat.com/browse/SBOMER-583
+    @Test
+    void shouldCullSourceComponentsWhenRetentionDisabled() throws IOException {
+        // Same sources manifest as the retention test, but with the syft-sources-retention feature flag off.
         String sourcesManifest = """
                 {
                   "bomFormat": "CycloneDX",
@@ -294,16 +353,15 @@ class SyftImageAdjusterTest {
         Path npmSourcesPath = tmpDir.resolve("npm-sources.json");
         Files.writeString(npmSourcesPath, sourcesManifest);
 
-        // Image scan scoped to /opt, as when the syft-manifest-opt feature flag is enabled. None of the
-        // image components live under /opt, but the source component must not be filtered by this path.
-        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, List.of("/opt"), false, npmSourcesPath, null);
+        // retainSources = false -> merged source components remain subject to the image '/opt' path filter.
+        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, List.of("/opt"), false, npmSourcesPath, null, false);
 
         Bom adjusted = adjuster.adjust(bom);
 
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(adjusted)).size());
-        assertTrue(
+        assertFalse(
                 adjusted.getComponents().stream().anyMatch(c -> "pkg:npm/dompurify@3.4.11".equals(c.getPurl())),
-                "The npm component merged from the sources manifest should survive the image '/opt' path filter");
+                "With retention disabled the source component must be culled by the image '/opt' path filter");
     }
 
     @Test
