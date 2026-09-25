@@ -57,6 +57,7 @@ public class TaskRunSyftImageGenerateDependentResource
     public static final String PARAM_COMMAND_CONTAINER_IMAGE = "image";
     public static final String PARAM_PATHS = "paths";
     public static final String PARAM_RPMS = "rpms";
+    public static final String PARAM_SOURCES_RETENTION = "sources-retention";
     public static final String PARAM_PROCESSORS = "processors";
     public static final String TASK_SUFFIX = "-generate-image-syft";
     public static final String SA_SUFFIX = "-sa";
@@ -106,10 +107,14 @@ public class TaskRunSyftImageGenerateDependentResource
 
         String rpmsParam = Boolean.toString(generationRequest.getConfig(SyftImageConfig.class).isIncludeRpms());
 
+        // Retain components merged from the sources ("lookaside cache") manifest even when they fall outside the
+        // image path filter. Controlled at runtime by the syft-sources-retention feature flag (SBOMER-583).
+        String sourcesRetentionParam = Boolean.toString(featureFlags.syftSourcesRetentionEnabled());
+
         // Determine paths based on feature flag and config
         List<String> paths = generationRequest.getConfig(SyftImageConfig.class).getPaths();
         if (featureFlags.syftManifestOptEnabled()) {
-            // When feature flag is enabled, append "/opt" to the paths
+            // When the feature flag is enabled, ensure these default paths are manifested by Syft
             List<String> effectivePaths = new ArrayList<>();
             if (paths != null && !paths.isEmpty()) {
                 effectivePaths.addAll(paths);
@@ -148,7 +153,10 @@ public class TaskRunSyftImageGenerateDependentResource
                                 .withNewValue(generationRequest.getConfig().toProcessorsCommand())
                                 .build(),
                         new ParamBuilder().withName(PARAM_PATHS).withValue(new ParamValue(paths)).build(),
-                        new ParamBuilder().withName(PARAM_RPMS).withValue(new ParamValue(rpmsParam)).build())
+                        new ParamBuilder().withName(PARAM_RPMS).withValue(new ParamValue(rpmsParam)).build(),
+                        new ParamBuilder().withName(PARAM_SOURCES_RETENTION)
+                                .withValue(new ParamValue(sourcesRetentionParam))
+                                .build())
                 .withTaskRef(new TaskRefBuilder().withName(release + TASK_SUFFIX).build())
 
                 .withWorkspaces(
