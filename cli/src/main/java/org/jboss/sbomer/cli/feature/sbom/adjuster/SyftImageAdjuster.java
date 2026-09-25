@@ -279,12 +279,25 @@ public class SyftImageAdjuster extends AbstractAdjuster {
                 return false;
             }
 
-            // Remove all components that are not on the paths we are interested in
-            boolean onPath = c.getProperties()
+            Optional<String> location = c.getProperties()
                     .stream()
-                    .filter(p -> p.getName().equals("syft:location:0:path") && isOnPath(p.getValue()))
-                    .findAny()
-                    .isEmpty();
+                    .filter(p -> "syft:location:0:path".equals(p.getName()))
+                    .map(Property::getValue)
+                    .findFirst();
+
+            // Components merged from the sources manifest carry source-relative locations (e.g.
+            // "app/ui/ui-docs/package-lock.json"). The 'paths' filter only describes absolute locations
+            // within the container image, so a component found at a relative location was not scanned from
+            // the image and must not be culled by it. (SBOMER-583)
+            if (location.isPresent() && !location.get().startsWith("/")) {
+                log.debug(
+                        "Component has a source-relative location '{}', not subject to the image path filter",
+                        location.get());
+                return false;
+            }
+
+            // Remove all components that are not on the paths we are interested in
+            boolean onPath = location.isEmpty() || !isOnPath(location.get());
 
             log.debug("Component on path: {}", onPath);
 
