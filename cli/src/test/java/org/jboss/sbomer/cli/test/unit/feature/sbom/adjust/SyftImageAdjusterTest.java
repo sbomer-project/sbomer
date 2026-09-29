@@ -51,7 +51,7 @@ class SyftImageAdjusterTest {
     static final String SKOPEO = "skopeo.json";
 
     SyftImageAdjuster createDefaultAdjuster() {
-        return new SyftImageAdjuster(tmpDir, null, true, sourcesManifestPath, sourcesMetadataPath);
+        return new SyftImageAdjuster(tmpDir, null, true, sourcesManifestPath, sourcesMetadataPath, true);
     }
 
     @BeforeEach
@@ -71,7 +71,8 @@ class SyftImageAdjusterTest {
                 null,
                 false,
                 sourcesManifestPath,
-                sourcesMetadataPath);
+                sourcesMetadataPath,
+                true);
 
         assertEquals(7, bom.getComponents().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(bom)).size());
@@ -96,7 +97,8 @@ class SyftImageAdjusterTest {
                 List.of("/azure-config-credentials-injector"),
                 false,
                 sourcesManifestPath,
-                sourcesMetadataPath);
+                sourcesMetadataPath,
+                true);
 
         assertEquals(7, bom.getComponents().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(bom)).size());
@@ -117,7 +119,8 @@ class SyftImageAdjusterTest {
                 List.of("app"),
                 false,
                 sourcesManifestPath,
-                sourcesMetadataPath);
+                sourcesMetadataPath,
+                true);
 
         assertEquals(7, bom.getComponents().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(bom)).size());
@@ -136,7 +139,8 @@ class SyftImageAdjusterTest {
                 List.of("/azure-config-credentials-injector", "app"),
                 false,
                 sourcesManifestPath,
-                sourcesMetadataPath);
+                sourcesMetadataPath,
+                true);
 
         assertEquals(7, bom.getComponents().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(bom)).size());
@@ -169,7 +173,8 @@ class SyftImageAdjusterTest {
                 List.of("/azure-config-credentials-injector"),
                 true,
                 sourcesManifestPath,
-                sourcesMetadataPath);
+                sourcesMetadataPath,
+                true);
 
         assertEquals(7, bom.getComponents().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(bom)).size());
@@ -190,7 +195,8 @@ class SyftImageAdjusterTest {
                 List.of("app"),
                 true,
                 sourcesManifestPath,
-                sourcesMetadataPath);
+                sourcesMetadataPath,
+                true);
 
         assertEquals(7, bom.getComponents().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(bom)).size());
@@ -209,7 +215,8 @@ class SyftImageAdjusterTest {
                 List.of("/azure-config-credentials-injector", "app"),
                 true,
                 sourcesManifestPath,
-                sourcesMetadataPath);
+                sourcesMetadataPath,
+                true);
 
         assertEquals(7, bom.getComponents().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(bom)).size());
@@ -223,7 +230,7 @@ class SyftImageAdjusterTest {
 
     @Test
     void noSourcesManifest() throws IOException {
-        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, null, false, null, sourcesMetadataPath);
+        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, null, false, null, sourcesMetadataPath, true);
 
         assertEquals(7, bom.getComponents().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(bom)).size());
@@ -237,7 +244,7 @@ class SyftImageAdjusterTest {
 
     @Test
     void noSourcesMetadata() throws IOException {
-        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, null, false, sourcesManifestPath, null);
+        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, null, false, sourcesManifestPath, null, true);
 
         assertEquals(7, bom.getComponents().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(bom)).size());
@@ -251,7 +258,7 @@ class SyftImageAdjusterTest {
 
     @Test
     void noSources() throws IOException {
-        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, null, false, null, null);
+        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, null, false, null, null, true);
 
         assertEquals(7, bom.getComponents().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(bom)).size());
@@ -308,7 +315,7 @@ class SyftImageAdjusterTest {
 
         // Image scan scoped to /opt, as when the syft-manifest-opt feature flag is enabled. None of the
         // image components live under /opt, but the npm source component must not be filtered by this path.
-        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, List.of("/opt"), false, npmSourcesPath, null);
+        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, List.of("/opt"), false, npmSourcesPath, null, true);
 
         Bom adjusted = adjuster.adjust(bom);
 
@@ -478,7 +485,7 @@ class SyftImageAdjusterTest {
 
     @Test
     void depsShouldPointToComponents() throws Exception {
-        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, List.of(), true, null, null);
+        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, List.of(), true, null, null, true);
 
         this.bom = SbomUtils.fromString(TestResources.asString("boms/shaded.json"));
 
@@ -509,7 +516,8 @@ class SyftImageAdjusterTest {
                 null,
                 true,
                 sourcesManifestPath,
-                sourcesMetadataPath);
+                sourcesMetadataPath,
+                true);
 
         assertFalse(bom.getMetadata().getProperties().isEmpty());
 

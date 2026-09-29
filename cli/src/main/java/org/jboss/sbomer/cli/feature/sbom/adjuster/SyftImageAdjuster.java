@@ -33,7 +33,6 @@ import static org.jboss.sbomer.core.features.sbom.utils.SbomUtils.addMissingCont
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -91,7 +90,7 @@ public class SyftImageAdjuster extends AbstractAdjuster {
      * the generated manifest even when they fall outside the image {@link SyftImageAdjuster#paths} filter. When
      * {@code false} such components remain subject to the paths filter, matching the pre-SBOMER-583 behaviour.
      *
-     * @see SyftImageAdjuster#filterComponents(List, Set)
+     * @see SyftImageAdjuster#filterComponents(List)
      */
     boolean retainSources;
 
@@ -122,19 +121,6 @@ public class SyftImageAdjuster extends AbstractAdjuster {
             CONTAINER_PROPERTY_LOCATION_PATH_PREFIX,
             CONTAINER_PROPERTY_METADATA_VIRTUALPATH_PREFIX,
             CONTAINER_PROPERTY_IMAGE_LABELS_PREFIX);
-
-    /**
-     * Backwards-compatible constructor that retains sources-manifest components regardless of the image
-     * {@link SyftImageAdjuster#paths} filter.
-     */
-    public SyftImageAdjuster(
-            Path workDir,
-            List<String> paths,
-            boolean includeRpms,
-            Path sourcesManifestPath,
-            Path sourcesMetadataPath) {
-        this(workDir, paths, includeRpms, sourcesManifestPath, sourcesMetadataPath, true);
-    }
 
     public SyftImageAdjuster(
             Path workDir,
@@ -176,10 +162,6 @@ public class SyftImageAdjuster extends AbstractAdjuster {
                 sourcesManifestPath != null ? sourcesManifestPath.toAbsolutePath() : null,
                 sourcesMetadataPath != null ? sourcesMetadataPath.toAbsolutePath() : null);
 
-        // Purls of components contributed by the sources ("lookaside cache") manifest, captured before the merge
-        // so filterComponents can tell them apart from components scanned out of the container image (SBOMER-583).
-        Set<String> sourcesPurls = new HashSet<>();
-
         // Add missing components and dependencies from sources manifest
         adjustEmptyComponents(bom);
         adjustEmptyDependencies(bom);
@@ -190,7 +172,6 @@ public class SyftImageAdjuster extends AbstractAdjuster {
             Bom sourcesBom = SbomUtils.fromPath(sourcesManifestPath);
 
             if (sourcesBom != null) {
-                collectPurls(sourcesBom.getComponents(), sourcesPurls);
                 SbomUtils.addMissingComponentsAndDependencies(bom, sourcesBom);
             }
         } else {
@@ -218,7 +199,7 @@ public class SyftImageAdjuster extends AbstractAdjuster {
         // Remove components from manifest according to 'paths' and 'includeRpms' parameters
         log.debug("Filtering out all components that do not meet requirements...");
 
-        filterComponents(bom.getComponents(), sourcesPurls);
+        filterComponents(bom.getComponents());
         adjustProperties(bom);
         adjustNameAndPurl(bom);
 
@@ -266,11 +247,10 @@ public class SyftImageAdjuster extends AbstractAdjuster {
      * {@link SyftImageAdjuster#includeRpms} and {@link SyftImageAdjuster#paths}.
      *
      * @param components the components to filter
-     * @param sourcesPurls purls of components contributed by the sources ("lookaside cache") manifest
      * @see SyftImageAdjuster#includeRpms
      * @see SyftImageAdjuster#paths
      */
-    private void filterComponents(List<Component> components, Set<String> sourcesPurls) {
+    private void filterComponents(List<Component> components) {
         if (components == null) {
             return;
         }
@@ -316,19 +296,16 @@ public class SyftImageAdjuster extends AbstractAdjuster {
                     .map(Property::getValue)
                     .findFirst();
 
-            // Components contributed by the sources ("lookaside cache") manifest are fetched from the build's
-            // remote sources, not scanned from the container image filesystem, and denote their origin via a
-            // source-relative syft:location path (e.g. "app/ui/ui-docs/package-lock.json"). The 'paths' filter
-            // only describes absolute locations within the image, so when retention is enabled it must not cull
-            // these merged dependencies (e.g. dompurify, axios) of any ecosystem. Requiring both a match in the
-            // sources manifest and a source-relative location ensures a same-purl component scanned from the image
-            // filesystem (an absolute location) stays subject to the filter. Gated by the syft-sources-retention
-            // feature flag. (SBOMER-583)
-            boolean fromSources = sourcesPurls.contains(c.getPurl());
-            boolean sourceRelative = location.isPresent() && !location.get().startsWith("/");
-            if (retainSources && fromSources && sourceRelative) {
+            // Components merged from the sources ("lookaside cache") manifest are fetched from the build's remote
+            // sources, not scanned from the container image filesystem, and carry a source-relative syft:location
+            // path (e.g. "app/ui/ui-docs/package-lock.json"). Image-scanned components always have absolute
+            // locations, so a source-relative location reliably identifies a sources-derived component. The 'paths'
+            // filter only describes absolute locations within the image, so when retention is enabled it must not
+            // cull these merged dependencies (e.g. dompurify, axios) of any ecosystem. Gated by the
+            // syft-sources-retention feature flag. (SBOMER-583)
+            if (retainSources && location.isPresent() && !location.get().startsWith("/")) {
                 log.debug(
-                        "Component '{}' originates from the sources manifest ({}), not subject to the image path filter",
+                        "Component '{}' has a source-relative location ({}), not subject to the image path filter",
                         c.getPurl(),
                         location.get());
                 return false;
@@ -343,26 +320,7 @@ public class SyftImageAdjuster extends AbstractAdjuster {
         });
 
         // Go deep
-        components.forEach(c -> filterComponents(c.getComponents(), sourcesPurls));
-    }
-
-    /**
-     * Collects the purls of the given components (recursively) into the provided set.
-     *
-     * @param components the components to collect purls from
-     * @param purls the set to populate
-     */
-    private void collectPurls(List<Component> components, Set<String> purls) {
-        if (components == null) {
-            return;
-        }
-
-        components.forEach(c -> {
-            if (c.getPurl() != null) {
-                purls.add(c.getPurl());
-            }
-            collectPurls(c.getComponents(), purls);
-        });
+        components.forEach(c -> filterComponents(c.getComponents()));
     }
 
     /**
