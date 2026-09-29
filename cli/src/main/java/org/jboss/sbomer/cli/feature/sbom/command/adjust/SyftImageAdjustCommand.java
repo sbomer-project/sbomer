@@ -43,6 +43,13 @@ public class SyftImageAdjustCommand extends AbstractAdjustCommand {
     boolean rpms;
 
     @Option(
+            names = "--retain-sources",
+            arity = "1",
+            defaultValue = "false",
+            description = "Retain components merged from the sources manifest even when they fall outside --path-filter")
+    boolean retainSources;
+
+    @Option(
             names = { "--sources-manifest" },
             paramLabel = "FILE",
             description = "Location of the sources manifest",
@@ -65,6 +72,7 @@ public class SyftImageAdjustCommand extends AbstractAdjustCommand {
     protected Bom doAdjust(Bom bom, Path workDir) {
         log.debug("Paths: {}", paths);
         log.debug("RPMs: {}", rpms);
+        log.debug("Retain sources: {}", retainSources);
         log.debug("Sources manifest: {}", sourcesManifestPath != null ? sourcesManifestPath.toAbsolutePath() : null);
         log.debug("Sources metadata: {}", sourcesMetadataPath != null ? sourcesMetadataPath.toAbsolutePath() : null);
 
@@ -73,7 +81,8 @@ public class SyftImageAdjustCommand extends AbstractAdjustCommand {
                 paths,
                 rpms,
                 sourcesManifestPath,
-                sourcesMetadataPath);
+                sourcesMetadataPath,
+                retainSources);
 
         return adjuster.adjust(bom);
     }

@@ -85,6 +85,15 @@ public class SyftImageAdjuster extends AbstractAdjuster {
      */
     boolean includeRpms;
 
+    /**
+     * A flag to determine whether components merged from the sources ("lookaside cache") manifest should be retained in
+     * the generated manifest even when they fall outside the image {@link SyftImageAdjuster#paths} filter. When
+     * {@code false} such components remain subject to the paths filter, matching the pre-SBOMER-583 behaviour.
+     *
+     * @see SyftImageAdjuster#filterComponents(List)
+     */
+    boolean retainSources;
+
     final Path workDir;
 
     /**
@@ -118,12 +127,14 @@ public class SyftImageAdjuster extends AbstractAdjuster {
             List<String> paths,
             boolean includeRpms,
             Path sourcesManifestPath,
-            Path sourcesMetadataPath) {
+            Path sourcesMetadataPath,
+            boolean retainSources) {
         this.workDir = workDir;
         this.paths = paths;
         this.includeRpms = includeRpms;
         this.sourcesManifestPath = sourcesManifestPath;
         this.sourcesMetadataPath = sourcesMetadataPath;
+        this.retainSources = retainSources;
     }
 
     /**
@@ -279,12 +290,29 @@ public class SyftImageAdjuster extends AbstractAdjuster {
                 return false;
             }
 
-            // Remove all components that are not on the paths we are interested in
-            boolean onPath = c.getProperties()
+            Optional<String> location = c.getProperties()
                     .stream()
-                    .filter(p -> p.getName().equals("syft:location:0:path") && isOnPath(p.getValue()))
-                    .findAny()
-                    .isEmpty();
+                    .filter(p -> "syft:location:0:path".equals(p.getName()))
+                    .map(Property::getValue)
+                    .findFirst();
+
+            // Components merged from the sources ("lookaside cache") manifest are fetched from the build's remote
+            // sources, not scanned from the container image filesystem, and carry a source-relative syft:location
+            // path (e.g. "app/ui/ui-docs/package-lock.json"). Image-scanned components always have absolute
+            // locations, so a source-relative location reliably identifies a sources-derived component. The 'paths'
+            // filter only describes absolute locations within the image, so when retention is enabled it must not
+            // cull these merged dependencies (e.g. dompurify, axios) of any ecosystem. Gated by the
+            // syft-sources-retention feature flag. (SBOMER-583)
+            if (retainSources && location.isPresent() && !location.get().startsWith("/")) {
+                log.debug(
+                        "Component '{}' has a source-relative location ({}), not subject to the image path filter",
+                        c.getPurl(),
+                        location.get());
+                return false;
+            }
+
+            // Remove all components that are not on the paths we are interested in
+            boolean onPath = location.isEmpty() || !isOnPath(location.get());
 
             log.debug("Component on path: {}", onPath);
 

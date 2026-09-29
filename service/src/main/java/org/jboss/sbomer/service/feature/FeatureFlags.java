@@ -72,6 +72,7 @@ public class FeatureFlags implements UnleashSubscriber {
 
     // Syft
     public static final String TOGGLE_SYFT_MANIFEST_OPT = "syft-manifest-opt";
+    public static final String TOGGLE_SYFT_SOURCES_RETENTION = "syft-sources-retention";
 
     // Generic PURL version guessing
     public static final String TOGGLE_GENERIC_COMPONENT_PURL_VERSION_REGEX = "generic-component-purl-version-regex";
@@ -131,6 +132,9 @@ public class FeatureFlags implements UnleashSubscriber {
 
     @ConfigProperty(name = "SBOMER_FEATURE_SYFT_MANIFEST_OPT_ENABLED", defaultValue = "false")
     boolean syftManifestOpt;
+
+    @ConfigProperty(name = "SBOMER_FEATURE_SYFT_SOURCES_RETENTION_ENABLED", defaultValue = "false")
+    boolean syftSourcesRetention;
 
     @ConfigProperty(name = "SBOMER_FEATURE_GENERIC_COMPONENT_PURL_VERSION_REGEX_ENABLED", defaultValue = "false")
     boolean genericComponentPurlVersionRegexEnabled;
@@ -272,6 +276,17 @@ public class FeatureFlags implements UnleashSubscriber {
     }
 
     /**
+     * Returns {@code true} if retention of components merged from the sources ("lookaside cache") manifest is enabled.
+     * When enabled, components fetched from the build's remote sources are kept in the manifest even when they fall
+     * outside the image {@code paths} filter (SBOMER-583).
+     *
+     * @return {@code true} if sources retention is enabled, {@code false} otherwise
+     */
+    public boolean syftSourcesRetentionEnabled() {
+        return unleash.isEnabled(TOGGLE_SYFT_SOURCES_RETENTION, syftSourcesRetention);
+    }
+
+    /**
      * Returns {@code true} if generic component PURL version regex extraction is enabled.
      *
      * @return {@code true} if generic component PURL version regex extraction is enabled, {@code false} otherwise
@@ -317,6 +332,7 @@ public class FeatureFlags implements UnleashSubscriber {
                 TOGGLE_STANDARD_ERRATA_IMAGE_RELEASE_MANIFEST_GENERATION,
                 TOGGLE_TEXTONLY_ERRATA_RELEASE_MANIFEST_GENERATION,
                 TOGGLE_SYFT_MANIFEST_OPT,
+                TOGGLE_SYFT_SOURCES_RETENTION,
                 TOGGLE_GENERIC_COMPONENT_PURL_VERSION_REGEX)) {
             FeatureToggle toggle = toggleResponse.getToggleCollection().getToggle(toggleName);
             Boolean previousValue = toggleValues.put(toggleName, toggle.isEnabled());

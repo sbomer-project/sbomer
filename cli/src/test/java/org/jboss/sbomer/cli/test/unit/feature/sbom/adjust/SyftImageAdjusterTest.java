@@ -51,7 +51,7 @@ class SyftImageAdjusterTest {
     static final String SKOPEO = "skopeo.json";
 
     SyftImageAdjuster createDefaultAdjuster() {
-        return new SyftImageAdjuster(tmpDir, null, true, sourcesManifestPath, sourcesMetadataPath);
+        return new SyftImageAdjuster(tmpDir, null, true, sourcesManifestPath, sourcesMetadataPath, true);
     }
 
     @BeforeEach
@@ -71,7 +71,8 @@ class SyftImageAdjusterTest {
                 null,
                 false,
                 sourcesManifestPath,
-                sourcesMetadataPath);
+                sourcesMetadataPath,
+                true);
 
         assertEquals(7, bom.getComponents().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(bom)).size());
@@ -96,15 +97,18 @@ class SyftImageAdjusterTest {
                 List.of("/azure-config-credentials-injector"),
                 false,
                 sourcesManifestPath,
-                sourcesMetadataPath);
+                sourcesMetadataPath,
+                true);
 
         assertEquals(7, bom.getComponents().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(bom)).size());
 
         Bom adjusted = adjuster.adjust(bom);
 
-        assertEquals(6, adjusted.getComponents().size());
-        assertEquals(6, adjusted.getDependencies().size());
+        // Components merged from the sources manifest are retained regardless of the image 'paths' filter,
+        // which only describes absolute image locations, so the source components survive (SBOMER-583).
+        assertEquals(9, adjusted.getComponents().size());
+        assertEquals(9, adjusted.getDependencies().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(adjusted)).size());
     }
 
@@ -115,7 +119,8 @@ class SyftImageAdjusterTest {
                 List.of("app"),
                 false,
                 sourcesManifestPath,
-                sourcesMetadataPath);
+                sourcesMetadataPath,
+                true);
 
         assertEquals(7, bom.getComponents().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(bom)).size());
@@ -134,7 +139,8 @@ class SyftImageAdjusterTest {
                 List.of("/azure-config-credentials-injector", "app"),
                 false,
                 sourcesManifestPath,
-                sourcesMetadataPath);
+                sourcesMetadataPath,
+                true);
 
         assertEquals(7, bom.getComponents().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(bom)).size());
@@ -167,15 +173,18 @@ class SyftImageAdjusterTest {
                 List.of("/azure-config-credentials-injector"),
                 true,
                 sourcesManifestPath,
-                sourcesMetadataPath);
+                sourcesMetadataPath,
+                true);
 
         assertEquals(7, bom.getComponents().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(bom)).size());
 
         Bom adjusted = adjuster.adjust(bom);
 
-        assertEquals(8, adjusted.getComponents().size());
-        assertEquals(8, adjusted.getDependencies().size());
+        // Components merged from the sources manifest are retained regardless of the image 'paths' filter,
+        // which only describes absolute image locations, so the source components survive (SBOMER-583).
+        assertEquals(11, adjusted.getComponents().size());
+        assertEquals(11, adjusted.getDependencies().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(adjusted)).size());
     }
 
@@ -186,7 +195,8 @@ class SyftImageAdjusterTest {
                 List.of("app"),
                 true,
                 sourcesManifestPath,
-                sourcesMetadataPath);
+                sourcesMetadataPath,
+                true);
 
         assertEquals(7, bom.getComponents().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(bom)).size());
@@ -205,7 +215,8 @@ class SyftImageAdjusterTest {
                 List.of("/azure-config-credentials-injector", "app"),
                 true,
                 sourcesManifestPath,
-                sourcesMetadataPath);
+                sourcesMetadataPath,
+                true);
 
         assertEquals(7, bom.getComponents().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(bom)).size());
@@ -219,7 +230,7 @@ class SyftImageAdjusterTest {
 
     @Test
     void noSourcesManifest() throws IOException {
-        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, null, false, null, sourcesMetadataPath);
+        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, null, false, null, sourcesMetadataPath, true);
 
         assertEquals(7, bom.getComponents().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(bom)).size());
@@ -233,7 +244,7 @@ class SyftImageAdjusterTest {
 
     @Test
     void noSourcesMetadata() throws IOException {
-        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, null, false, sourcesManifestPath, null);
+        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, null, false, sourcesManifestPath, null, true);
 
         assertEquals(7, bom.getComponents().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(bom)).size());
@@ -247,7 +258,7 @@ class SyftImageAdjusterTest {
 
     @Test
     void noSources() throws IOException {
-        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, null, false, null, null);
+        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, null, false, null, null, true);
 
         assertEquals(7, bom.getComponents().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(bom)).size());
@@ -257,6 +268,107 @@ class SyftImageAdjusterTest {
         assertEquals(6, adjusted.getComponents().size());
         assertEquals(6, adjusted.getDependencies().size());
         assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(adjusted)).size());
+    }
+
+    // https://issues.redhat.com/browse/SBOMER-583
+    @Test
+    void shouldRetainSourceComponentsWhenImagePathScoped() throws IOException {
+        // A sources manifest carrying an npm dependency and a golang dependency, both with source-relative
+        // locations, as produced by scanning the build's Cachito remote sources. The npm entry mirrors the
+        // reporter's dropped packages; the golang entry pins that the exemption spans ecosystems.
+        String sourcesManifest = """
+                {
+                  "bomFormat": "CycloneDX",
+                  "specVersion": "1.6",
+                  "version": 1,
+                  "metadata": {
+                    "component": { "bom-ref": "source-archive", "type": "file", "name": "remote-source.tar.gz" }
+                  },
+                  "components": [
+                    {
+                      "bom-ref": "pkg:npm/dompurify@3.4.11",
+                      "type": "library",
+                      "name": "dompurify",
+                      "version": "3.4.11",
+                      "purl": "pkg:npm/dompurify@3.4.11",
+                      "properties": [
+                        { "name": "syft:package:type", "value": "npm" },
+                        { "name": "syft:location:0:path", "value": "app/ui/ui-docs/package-lock.json" }
+                      ]
+                    },
+                    {
+                      "bom-ref": "pkg:golang/example.com/tool@v1.0.0",
+                      "type": "library",
+                      "name": "tool",
+                      "version": "v1.0.0",
+                      "purl": "pkg:golang/example.com/tool@v1.0.0",
+                      "properties": [
+                        { "name": "syft:package:type", "value": "go-module" },
+                        { "name": "syft:location:0:path", "value": "app/go.mod" }
+                      ]
+                    }
+                  ]
+                }
+                """;
+        Path npmSourcesPath = tmpDir.resolve("npm-sources.json");
+        Files.writeString(npmSourcesPath, sourcesManifest);
+
+        // Image scan scoped to /opt, as when the syft-manifest-opt feature flag is enabled. None of the
+        // image components live under /opt, but the npm source component must not be filtered by this path.
+        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, List.of("/opt"), false, npmSourcesPath, null, true);
+
+        Bom adjusted = adjuster.adjust(bom);
+
+        assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(adjusted)).size());
+        assertTrue(
+                adjusted.getComponents().stream().anyMatch(c -> "pkg:npm/dompurify@3.4.11".equals(c.getPurl())),
+                "The npm component merged from the sources manifest should survive the image '/opt' path filter");
+        assertTrue(
+                adjusted.getComponents()
+                        .stream()
+                        .anyMatch(c -> "pkg:golang/example.com/tool@v1.0.0".equals(c.getPurl())),
+                "A source component of any ecosystem should survive the image '/opt' path filter");
+    }
+
+    // https://issues.redhat.com/browse/SBOMER-583
+    @Test
+    void shouldCullSourceComponentsWhenRetentionDisabled() throws IOException {
+        // Same sources manifest as the retention test, but with the syft-sources-retention feature flag off.
+        String sourcesManifest = """
+                {
+                  "bomFormat": "CycloneDX",
+                  "specVersion": "1.6",
+                  "version": 1,
+                  "metadata": {
+                    "component": { "bom-ref": "source-archive", "type": "file", "name": "remote-source.tar.gz" }
+                  },
+                  "components": [
+                    {
+                      "bom-ref": "pkg:npm/dompurify@3.4.11",
+                      "type": "library",
+                      "name": "dompurify",
+                      "version": "3.4.11",
+                      "purl": "pkg:npm/dompurify@3.4.11",
+                      "properties": [
+                        { "name": "syft:package:type", "value": "npm" },
+                        { "name": "syft:location:0:path", "value": "app/ui/ui-docs/package-lock.json" }
+                      ]
+                    }
+                  ]
+                }
+                """;
+        Path npmSourcesPath = tmpDir.resolve("npm-sources.json");
+        Files.writeString(npmSourcesPath, sourcesManifest);
+
+        // retainSources = false -> merged source components remain subject to the image '/opt' path filter.
+        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, List.of("/opt"), false, npmSourcesPath, null, false);
+
+        Bom adjusted = adjuster.adjust(bom);
+
+        assertEquals(0, SbomUtils.validate(SbomUtils.toJsonNode(adjusted)).size());
+        assertFalse(
+                adjusted.getComponents().stream().anyMatch(c -> "pkg:npm/dompurify@3.4.11".equals(c.getPurl())),
+                "With retention disabled the source component must be culled by the image '/opt' path filter");
     }
 
     @Test
@@ -373,7 +485,7 @@ class SyftImageAdjusterTest {
 
     @Test
     void depsShouldPointToComponents() throws Exception {
-        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, List.of(), true, null, null);
+        SyftImageAdjuster adjuster = new SyftImageAdjuster(tmpDir, List.of(), true, null, null, true);
 
         this.bom = SbomUtils.fromString(TestResources.asString("boms/shaded.json"));
 
@@ -404,7 +516,8 @@ class SyftImageAdjusterTest {
                 null,
                 true,
                 sourcesManifestPath,
-                sourcesMetadataPath);
+                sourcesMetadataPath,
+                true);
 
         assertFalse(bom.getMetadata().getProperties().isEmpty());
 
