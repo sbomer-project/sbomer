@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.sbomer.core.errors.ApplicationException;
 import org.jboss.sbomer.core.errors.ClientException;
+import org.jboss.sbomer.core.errors.NotFoundException;
 import org.jboss.sbomer.core.features.sbom.utils.OtelHelper;
 import org.jboss.sbomer.service.feature.FeatureFlags;
 import org.jboss.sbomer.service.feature.errors.FeatureDisabledException;
@@ -95,14 +96,50 @@ public class AtlasHandler {
         log.info("Using Atlas API version '{}' for the {} instance", apiVersion, atlasInstanceName);
 
         for (Sbom sbom : sboms) {
-            uploadManifest(sbom, atlasClient, apiVersion);
+            // Reuse whichever version succeeded so a fallback is applied only once per batch, not once per manifest.
+            apiVersion = uploadManifest(sbom, atlasClient, apiVersion);
         }
 
         log.info("Upload complete!");
     }
 
-    protected void uploadManifest(Sbom sbom, AtlasClient atlasClient, String apiVersion) {
-        log.info("Uploading manifest '{}' (purl: '{}')...", sbom.getId(), sbom.getRootPurl());
+    /**
+     * Uploads a single manifest using {@code apiVersion}. A 404 means the instance does not expose that API version
+     * (the resolved version was a wrong guess), so the upload is retried once against the other version. Returns the
+     * API version that succeeded so the caller can reuse it for the remaining manifests in the batch.
+     */
+    protected String uploadManifest(Sbom sbom, AtlasClient atlasClient, String apiVersion) {
+        try {
+            doUploadManifest(sbom, atlasClient, apiVersion);
+            return apiVersion;
+        } catch (NotFoundException e) {
+            String fallbackApiVersion = AtlasApiVersionResolver.otherApiVersion(apiVersion);
+            log.warn(
+                    "Atlas responded with 404 for manifest '{}' using API version '{}', the instance does not expose it; retrying with API version '{}'",
+                    sbom.getId(),
+                    apiVersion,
+                    fallbackApiVersion);
+            try {
+                doUploadManifest(sbom, atlasClient, fallbackApiVersion);
+            } catch (NotFoundException ex) {
+                // Neither API version stored the manifest; surface a clean error rather than a raw 404.
+                throw new ApplicationException(
+                        "Unable to store '{}' manifest in Atlas, purl: '{}': {}",
+                        sbom.getId(),
+                        sbom.getRootPurl(),
+                        ex.getMessage(),
+                        ex);
+            }
+            return fallbackApiVersion;
+        }
+    }
+
+    private void doUploadManifest(Sbom sbom, AtlasClient atlasClient, String apiVersion) {
+        log.info(
+                "Uploading manifest '{}' (purl: '{}') using Atlas API version '{}'...",
+                sbom.getId(),
+                sbom.getRootPurl(),
+                apiVersion);
 
         Map<String, String> attributes = new HashMap<>();
         attributes.put("params.atlas.client.name", OtelHelper.getEffectiveClassName(atlasClient.getClass()));
@@ -116,6 +153,9 @@ public class AtlasHandler {
             try {
                 // Store it!
                 atlasClient.upload(apiVersion, LABELS, sbom.getSbom());
+            } catch (NotFoundException e) {
+                // Let the caller retry the upload against the other API version.
+                throw e;
             } catch (ClientException e) {
                 throw new ApplicationException(
                         "Unable to store '{}' manifest in Atlas, purl: '{}': {}",

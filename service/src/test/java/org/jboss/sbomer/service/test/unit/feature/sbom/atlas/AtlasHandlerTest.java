@@ -22,6 +22,7 @@ import java.util.Map;
 import org.cyclonedx.model.Bom;
 import org.jboss.sbomer.core.errors.ApplicationException;
 import org.jboss.sbomer.core.errors.ClientException;
+import org.jboss.sbomer.core.errors.NotFoundException;
 import org.jboss.sbomer.core.features.sbom.utils.SbomUtils;
 import org.jboss.sbomer.core.test.TestResources;
 import org.jboss.sbomer.service.feature.FeatureFlags;
@@ -41,8 +42,9 @@ class AtlasHandlerTest {
 
     static class AtlasHandlerAlt extends AtlasHandler {
         @Override
-        public void uploadManifest(Sbom sbom, AtlasClient atlasClient, String apiVersion) throws ApplicationException {
-            super.uploadManifest(sbom, atlasClient, apiVersion);
+        public String uploadManifest(Sbom sbom, AtlasClient atlasClient, String apiVersion)
+                throws ApplicationException {
+            return super.uploadManifest(sbom, atlasClient, apiVersion);
         }
     }
 
@@ -111,6 +113,60 @@ class AtlasHandlerTest {
         verify(atlasBuildClient, times(1)).upload(eq(API_VERSION), eq(LABELS), eq(sbomB.getSbom()));
         verify(atlasReleaseClient, times(1)).upload(eq(API_VERSION), eq(LABELS), eq(sbomA.getSbom()));
         verify(atlasReleaseClient, times(1)).upload(eq(API_VERSION), eq(LABELS), eq(sbomB.getSbom()));
+    }
+
+    @Test
+    void testFallsBackToOtherApiVersionOnNotFound() throws Exception {
+        Sbom sbom = generateSbom("AAA", "pkg:maven/compA@1.1.0?type=pom");
+        List<Sbom> sboms = List.of(sbom);
+
+        // The instance does not expose the resolved version (v3) -> 404; the other version (v2) succeeds.
+        doThrow(new NotFoundException("Requested resource was not found")).when(atlasBuildClient)
+                .upload(eq("v3"), any(Map.class), any(JsonNode.class));
+
+        assertDoesNotThrow(() -> atlasHandler.publishBuildManifests(sboms));
+
+        verify(atlasBuildClient, times(1)).upload(eq("v3"), eq(LABELS), eq(sbom.getSbom()));
+        verify(atlasBuildClient, times(1)).upload(eq("v2"), eq(LABELS), eq(sbom.getSbom()));
+    }
+
+    @Test
+    void testFallbackIsReusedForRestOfBatch() throws Exception {
+        Sbom sbomA = generateSbom("AAA", "pkg:maven/compA@1.1.0?type=pom");
+        Sbom sbomB = generateSbom("BBB", "pkg:maven/compB@1.1.0?type=pom");
+        List<Sbom> sboms = List.of(sbomA, sbomB);
+
+        doThrow(new NotFoundException("Requested resource was not found")).when(atlasBuildClient)
+                .upload(eq("v3"), any(Map.class), any(JsonNode.class));
+
+        atlasHandler.publishBuildManifests(sboms);
+
+        // Only the first manifest probes v3; the fallback then sticks so both are uploaded via v2.
+        verify(atlasBuildClient, times(1)).upload(eq("v3"), any(Map.class), any(JsonNode.class));
+        verify(atlasBuildClient, times(1)).upload(eq("v2"), eq(LABELS), eq(sbomA.getSbom()));
+        verify(atlasBuildClient, times(1)).upload(eq("v2"), eq(LABELS), eq(sbomB.getSbom()));
+    }
+
+    @Test
+    void testFailsCleanlyWhenBothApiVersionsReturnNotFound() throws Exception {
+        Sbom sbom = generateSbom("AAA", "pkg:maven/compA@1.1.0?type=pom");
+        List<Sbom> sboms = List.of(sbom);
+        String reason = "Requested resource was not found";
+
+        // Neither API version stores the manifest -> both 404.
+        doThrow(new NotFoundException(reason)).when(atlasBuildClient)
+                .upload(anyString(), any(Map.class), any(JsonNode.class));
+
+        ApplicationException ex = assertThrows(
+                ApplicationException.class,
+                () -> atlasHandler.publishBuildManifests(sboms));
+
+        verify(atlasBuildClient, times(1)).upload(eq("v3"), eq(LABELS), eq(sbom.getSbom()));
+        verify(atlasBuildClient, times(1)).upload(eq("v2"), eq(LABELS), eq(sbom.getSbom()));
+
+        String message = "Unable to store '" + sbom.getId() + "' manifest in Atlas, purl: '" + sbom.getRootPurl()
+                + "': " + reason;
+        assertEquals(message, ex.getMessage());
     }
 
     @Test

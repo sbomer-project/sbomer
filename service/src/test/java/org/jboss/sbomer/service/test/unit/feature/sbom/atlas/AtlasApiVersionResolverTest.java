@@ -119,13 +119,37 @@ class AtlasApiVersionResolverTest {
     }
 
     @Test
+    void tpaTwoDotXResolvesToV2() {
+        when(buildInfoClient.info()).thenReturn(info("2.2.5"));
+        assertEquals(V2, resolver.resolve(false));
+    }
+
+    @Test
+    void tpaThreeDotXResolvesToV3() {
+        when(buildInfoClient.info()).thenReturn(info("3.0.0"));
+        assertEquals(V3, resolver.resolve(false));
+    }
+
+    @Test
     void supportsV3VersionMatrix() {
         assertFalse(AtlasApiVersionResolver.supportsV3(null));
         assertFalse(AtlasApiVersionResolver.supportsV3(""));
+        // Trustify 0.x scheme: /api/v3/ landed in 0.5.0.
         assertFalse(AtlasApiVersionResolver.supportsV3("0.4.99"));
         assertTrue(AtlasApiVersionResolver.supportsV3("0.5.0"));
         assertTrue(AtlasApiVersionResolver.supportsV3("0.6.0-rc.1"));
-        assertTrue(AtlasApiVersionResolver.supportsV3("1.0.0"));
+        // 1.x is not a known v3 line; stay on v2 and let the upload 404 fallback recover if needed.
+        assertFalse(AtlasApiVersionResolver.supportsV3("1.0.0"));
+        // TPA scheme: 2.x serves /api/v2/, 3.x+ serves /api/v3/. "3.1.0" is a real TPA /.well-known/trustify version.
+        assertFalse(AtlasApiVersionResolver.supportsV3("2.2.5"));
+        assertTrue(AtlasApiVersionResolver.supportsV3("3.0.0"));
+        assertTrue(AtlasApiVersionResolver.supportsV3("3.1.0"));
         assertFalse(AtlasApiVersionResolver.supportsV3("garbage"));
+    }
+
+    @Test
+    void otherApiVersionFlips() {
+        assertEquals(V2, AtlasApiVersionResolver.otherApiVersion(V3));
+        assertEquals(V3, AtlasApiVersionResolver.otherApiVersion(V2));
     }
 }
