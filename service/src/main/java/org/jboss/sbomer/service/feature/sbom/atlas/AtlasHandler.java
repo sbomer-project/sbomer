@@ -119,7 +119,17 @@ public class AtlasHandler {
                     sbom.getId(),
                     apiVersion,
                     fallbackApiVersion);
-            doUploadManifest(sbom, atlasClient, fallbackApiVersion);
+            try {
+                doUploadManifest(sbom, atlasClient, fallbackApiVersion);
+            } catch (NotFoundException ex) {
+                // Neither API version stored the manifest; surface a clean error rather than a raw 404.
+                throw new ApplicationException(
+                        "Unable to store '{}' manifest in Atlas, purl: '{}': {}",
+                        sbom.getId(),
+                        sbom.getRootPurl(),
+                        ex.getMessage(),
+                        ex);
+            }
             return fallbackApiVersion;
         }
     }

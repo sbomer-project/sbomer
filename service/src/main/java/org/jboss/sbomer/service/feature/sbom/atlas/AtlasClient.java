@@ -26,6 +26,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Map;
 
 import org.eclipse.microprofile.faulttolerance.Retry;
+import org.jboss.sbomer.core.errors.NotFoundException;
 import org.jboss.sbomer.core.rest.faulttolerance.RetryLogger;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -58,7 +59,8 @@ public interface AtlasClient {
             delay = ATLAS_CLIENT_DELAY,
             delayUnit = ChronoUnit.SECONDS,
             maxDuration = ATLAS_CLIENT_MAX_DURATION,
-            durationUnit = ChronoUnit.SECONDS)
+            durationUnit = ChronoUnit.SECONDS,
+            abortOn = NotFoundException.class)
     @ExponentialBackoff(maxDelay = ATLAS_CLIENT_BACKOFF_MAX_DELAY, maxDelayUnit = ChronoUnit.SECONDS)
     @BeforeRetry(RetryLogger.class)
     void upload(

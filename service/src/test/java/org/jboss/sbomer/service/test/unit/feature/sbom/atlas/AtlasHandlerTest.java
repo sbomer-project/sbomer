@@ -148,6 +148,28 @@ class AtlasHandlerTest {
     }
 
     @Test
+    void testFailsCleanlyWhenBothApiVersionsReturnNotFound() throws Exception {
+        Sbom sbom = generateSbom("AAA", "pkg:maven/compA@1.1.0?type=pom");
+        List<Sbom> sboms = List.of(sbom);
+        String reason = "Requested resource was not found";
+
+        // Neither API version stores the manifest -> both 404.
+        doThrow(new NotFoundException(reason)).when(atlasBuildClient)
+                .upload(anyString(), any(Map.class), any(JsonNode.class));
+
+        ApplicationException ex = assertThrows(
+                ApplicationException.class,
+                () -> atlasHandler.publishBuildManifests(sboms));
+
+        verify(atlasBuildClient, times(1)).upload(eq("v3"), eq(LABELS), eq(sbom.getSbom()));
+        verify(atlasBuildClient, times(1)).upload(eq("v2"), eq(LABELS), eq(sbom.getSbom()));
+
+        String message = "Unable to store '" + sbom.getId() + "' manifest in Atlas, purl: '" + sbom.getRootPurl()
+                + "': " + reason;
+        assertEquals(message, ex.getMessage());
+    }
+
+    @Test
     void testHandlingOfApiErrors() throws Exception {
         Sbom sbom = generateSbom("AAA", "pkg:maven/compA@1.1.0?type=pom");
         List<Sbom> sboms = List.of(sbom);
