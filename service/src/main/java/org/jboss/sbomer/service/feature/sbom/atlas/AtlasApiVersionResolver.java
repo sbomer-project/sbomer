@@ -47,9 +47,15 @@ public class AtlasApiVersionResolver {
     public static final String V2 = "v2";
     public static final String V3 = "v3";
 
-    /** The API version in {@code /api/v3/} landed with Trustify 0.5.0. */
-    static final int V3_MIN_MAJOR = 0;
-    static final int V3_MIN_MINOR = 5;
+    /** Trustify uses a 0.x scheme; the {@code /api/v3/} API landed in Trustify 0.5.0. */
+    static final int TRUSTIFY_MAJOR = 0;
+    static final int TRUSTIFY_V3_MIN_MINOR = 5;
+
+    /**
+     * TPA (Trusted Profile Analyzer) uses its own scheme: the 2.x line still serves {@code /api/v2/}, while 3.x is
+     * expected to serve {@code /api/v3/}.
+     */
+    static final int TPA_V3_MIN_MAJOR = 3;
 
     @Inject
     @RestClient
@@ -103,8 +109,11 @@ public class AtlasApiVersionResolver {
     }
 
     /**
-     * Returns {@code true} if the provided server version string is {@code >= 0.5.0}, i.e. exposes the {@code /api/v3/}
-     * API. Unparseable or blank versions are treated as below the threshold ({@code v2}).
+     * Returns {@code true} if the provided server version string exposes the {@code /api/v3/} API. Two version schemes
+     * are recognised: Trustify's 0.x line (v3 from {@code 0.5.0}) and TPA's line (2.x stays on v2, 3.x and above move
+     * to v3). Unparseable or blank versions, and versions below the relevant threshold, are treated as {@code v2}. This
+     * is only a best guess; a wrong result is recovered from by the upload's 404 fallback (see
+     * {@link #otherApiVersion}).
      */
     public static boolean supportsV3(String version) {
         if (version == null || version.isBlank()) {
@@ -119,10 +128,24 @@ public class AtlasApiVersionResolver {
             int major = Integer.parseInt(parts[0]);
             int minor = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
 
-            return major > V3_MIN_MAJOR || (major == V3_MIN_MAJOR && minor >= V3_MIN_MINOR);
+            // Trustify 0.x: /api/v3/ landed in 0.5.0.
+            if (major == TRUSTIFY_MAJOR) {
+                return minor >= TRUSTIFY_V3_MIN_MINOR;
+            }
+
+            // TPA scheme: the 2.x line serves /api/v2/, 3.x and above serve /api/v3/.
+            return major >= TPA_V3_MIN_MAJOR;
         } catch (NumberFormatException e) {
             log.warn("Unable to parse Atlas server version '{}', assuming API version '{}'", version, V2);
             return false;
         }
+    }
+
+    /**
+     * Returns the API version segment to fall back to when a server rejects {@code apiVersion} with a 404, i.e. the
+     * other of {@value #V2}/{@value #V3}.
+     */
+    public static String otherApiVersion(String apiVersion) {
+        return V3.equals(apiVersion) ? V2 : V3;
     }
 }
