@@ -24,35 +24,50 @@ import java.util.Map;
 
 import org.cyclonedx.Version;
 import org.cyclonedx.parsers.JsonParser;
+import org.spdx.library.ListedLicenses;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.networknt.schema.JsonSchema;
 import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SchemaValidatorsConfig;
 import com.networknt.schema.SpecVersionDetector;
 import com.networknt.schema.resource.MapSchemaMapper;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * A {@link JsonParser} that overrides the SPDX license sub-schema used during CycloneDX BOM validation.
  * <p>
  * Upstream {@code org.cyclonedx.CycloneDxSchema#getJsonSchema} resolves the
  * {@code http://cyclonedx.org/schema/spdx.schema.json} {@code $ref} from the {@code cyclonedx-core-java} jar (an
- * {@code enum} of accepted SPDX license identifiers). Here we remap that single URI to our own bundled resource
- * ({@value #SPDX_SCHEMA_RESOURCE} in {@code core/src/main/resources}) so we control the set of accepted license
- * identifiers; every other schema still comes from the library jar.
+ * {@code enum} of accepted SPDX license identifiers), which can become stale between library releases. Here we supply
+ * that single schema from one generated at runtime (in memory) from {@link ListedLicenses} so that we get a fresh list
+ * from the network. Every other schema still comes from the library jar.
  * <p>
  * NOTE: the body of {@link #getJsonSchema(Version, ObjectMapper)} mirrors upstream
  * {@code CycloneDxSchema#getJsonSchema} (cyclonedx-core-java 9.1.0-patch); only the spdx.schema.json mapping differs.
  * Re-check this against upstream on every cyclonedx-core-java bump.
  */
+@Slf4j
 public class SbomerJsonParser extends JsonParser {
 
-    /** Classpath resource (in {@code core/src/main/resources}) holding our SPDX license enum. */
-    static final String SPDX_SCHEMA_RESOURCE = "sbomer-spdx.schema.json";
+    /** The {@code spdx.schema.json} content generated once from {@link ListedLicenses}. */
+    private static volatile String spdxSchema;
 
     @Override
     public JsonSchema getJsonSchema(final Version schemaVersion, final ObjectMapper mapper) throws IOException {
+        final String spdxSchema;
+
+        try {
+            spdxSchema = spdxSchema(mapper);
+        } catch (RuntimeException e) {
+            log.warn("Falling back to CycloneDX SPDX license list due to error: {}", e.getMessage(), e);
+            return super.getJsonSchema(schemaVersion, mapper);
+        }
+
         final InputStream bomSchemaStream = bomSchemaAsStream(schemaVersion);
 
         final SchemaValidatorsConfig config = new SchemaValidatorsConfig();
@@ -60,10 +75,6 @@ public class SbomerJsonParser extends JsonParser {
 
         final ClassLoader cl = getClass().getClassLoader();
         final Map<String, String> offlineMappings = new HashMap<>();
-        // The one mapping that differs from upstream: our SPDX license enum instead of the bundled one.
-        offlineMappings.put(
-                "http://cyclonedx.org/schema/spdx.schema.json",
-                cl.getResource(SPDX_SCHEMA_RESOURCE).toExternalForm());
         offlineMappings.put(
                 "http://cyclonedx.org/schema/jsf-0.82.schema.json",
                 cl.getResource("jsf-0.82.schema.json").toExternalForm());
@@ -89,10 +100,31 @@ public class SbomerJsonParser extends JsonParser {
         final JsonSchemaFactory factory = JsonSchemaFactory
                 .builder(JsonSchemaFactory.getInstance(SpecVersionDetector.detect(schemaNode)))
                 .jsonMapper(mapper)
+                // The one mapping that differs from upstream: serve our runtime SPDX license enum from memory
+                // instead of the bundled one.
+                .schemaLoaders(s -> s.schemas(Map.of("http://cyclonedx.org/schema/spdx.schema.json", spdxSchema)))
                 .schemaMappers(s -> s.add(offlineSchemaMapper))
                 .build();
 
         return factory.getSchema(schemaNode, config);
+    }
+
+    private static synchronized String spdxSchema(final ObjectMapper mapper) throws IOException {
+        if (spdxSchema != null) {
+            return spdxSchema;
+        }
+
+        final ListedLicenses licenses = ListedLicenses.getListedLicenses();
+        final ObjectNode schema = mapper.createObjectNode();
+        schema.put("$schema", "http://json-schema.org/draft-07/schema#");
+        schema.put("$id", "http://cyclonedx.org/schema/spdx.schema.json");
+        schema.put("$comment", licenses.getLicenseListVersion());
+        schema.put("type", "string");
+        final ArrayNode ids = schema.putArray("enum");
+        licenses.getSpdxListedLicenseIds().forEach(ids::add);
+        licenses.getSpdxListedExceptionIds().forEach(ids::add);
+        spdxSchema = mapper.writeValueAsString(schema);
+        return spdxSchema;
     }
 
     /**

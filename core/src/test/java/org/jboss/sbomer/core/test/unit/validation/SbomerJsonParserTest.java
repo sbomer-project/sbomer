@@ -40,9 +40,9 @@ import com.fasterxml.jackson.databind.JsonNode;
  * {@link org.jboss.sbomer.core.features.sbom.validation.SbomerJsonParser}.
  * <p>
  * The {@code cyclonedx-core-java} jar bundles an older SPDX snapshot that is missing newer identifiers (e.g.
- * {@code Artistic-dist}). The override redirects the SPDX {@code $ref} to our refreshed
- * {@code sbomer-spdx.schema.json}. If that override is reverted, or a future cyclonedx bump reinstates the stale list,
- * the first test below starts failing.
+ * {@code Artistic-dist}). The override remaps the SPDX {@code $ref} to a schema generated at runtime from the
+ * {@code java-spdx-library} license list. If that override is reverted, or a future cyclonedx bump reinstates the stale
+ * list, the first test below starts failing.
  */
 class SbomerJsonParserTest {
 
@@ -84,6 +84,17 @@ class SbomerJsonParserTest {
         assertTrue(
                 errors.isEmpty(),
                 () -> "Expected no validation errors for Artistic-dist, got: "
+                        + errors.stream().map(ParseException::getMessage).toList());
+    }
+
+    @Test
+    @DisplayName("Accepts a bare SPDX license-exception id in license.id (enum is licenses UNION exceptions)")
+    void shouldAcceptLicenseExceptionId() throws IOException {
+        List<ParseException> errors = validateWithLicense("Classpath-exception-2.0");
+
+        assertTrue(
+                errors.isEmpty(),
+                () -> "Expected no validation errors for Classpath-exception-2.0, got: "
                         + errors.stream().map(ParseException::getMessage).toList());
     }
 
