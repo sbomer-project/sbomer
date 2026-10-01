@@ -114,6 +114,7 @@ import org.jboss.sbomer.core.features.sbom.config.PncBuildConfig;
 import org.jboss.sbomer.core.features.sbom.config.runtime.ProductConfig;
 import org.jboss.sbomer.core.features.sbom.config.runtime.RedHatProductProcessorConfig;
 import org.jboss.sbomer.core.features.sbom.koji.RemoteSource;
+import org.jboss.sbomer.core.features.sbom.validation.SbomerJsonParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -646,7 +647,7 @@ public class SbomUtils {
     }
 
     public static List<ParseException> validate(JsonNode jsonNode) throws IOException {
-        return new JsonParser().validate(
+        return new SbomerJsonParser().validate(
                 jsonNode.isTextual() ? jsonNode.textValue().getBytes() : jsonNode.toString().getBytes(),
                 schemaVersion());
     }
