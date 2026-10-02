@@ -24,7 +24,6 @@ import java.util.Collections;
 import java.util.List;
 
 import org.cyclonedx.exception.ParseException;
-import org.cyclonedx.parsers.JsonParser;
 import org.hibernate.validator.constraintvalidation.HibernateConstraintValidatorContext;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -43,7 +42,7 @@ public class CycloneDxBomValidator implements ConstraintValidator<CycloneDxBom, 
         List<ParseException> exceptions;
 
         try {
-            exceptions = new JsonParser().validate(
+            exceptions = new SbomerJsonParser().validate(
                     value.isTextual() ? value.textValue().getBytes() : value.toString().getBytes(),
                     schemaVersion());
 

@@ -77,6 +77,7 @@
     <version.commons-lang3>3.19.0</version.commons-lang3>
     <version.quarkus-test-artemis>3.1.2</version.quarkus-test-artemis>
     <version.build-finder>2.6.7</version.build-finder>
+    <version.spdx>2.0.5</version.spdx>
     <version.mapstruct>1.6.3</version.mapstruct>
     <version.jandex>3.4.0</version.jandex>
     <version.tsid>5.2.6</version.tsid>
@@ -149,6 +150,11 @@
         <groupId>org.jboss.pnc</groupId>
         <artifactId>rest-client-jakarta</artifactId>
         <version>${version.pnc}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.spdx</groupId>
+        <artifactId>java-spdx-library</artifactId>
+        <version>${version.spdx}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

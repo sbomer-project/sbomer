@@ -95,6 +95,10 @@
       <version>${version.cyclonedx}</version>
     </dependency>
     <dependency>
+      <groupId>org.spdx</groupId>
+      <artifactId>java-spdx-library</artifactId>
+    </dependency>
+    <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-json-schema</artifactId>
     </dependency>
