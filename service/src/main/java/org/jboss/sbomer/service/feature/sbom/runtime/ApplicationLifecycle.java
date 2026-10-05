@@ -17,6 +17,7 @@
  */
 package org.jboss.sbomer.service.feature.sbom.runtime;
 
+import org.jboss.sbomer.core.features.sbom.validation.SbomerJsonParser;
 import org.jboss.sbomer.service.feature.FeatureFlags;
 
 import io.quarkus.runtime.ShutdownEvent;
@@ -41,6 +42,7 @@ public class ApplicationLifecycle {
     void onStart(@Observes StartupEvent event) {
         // we need to log startup and shutdown events
         log.info("Application has started");
+        SbomerJsonParser.load();
     }
 
     void onStop(@Observes ShutdownEvent event) {

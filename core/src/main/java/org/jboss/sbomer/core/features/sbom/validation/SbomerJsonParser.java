@@ -53,6 +53,9 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class SbomerJsonParser extends JsonParser {
+    private static final String CONNECT_TIMEOUT_PROPERTY = "sun.net.client.defaultConnectTimeout";
+
+    private static final String CONNECT_TIMEOUT_MS = "3000";
 
     /** The {@code spdx.schema.json} content generated once from {@link ListedLicenses}. */
     private static volatile String spdxSchema;
@@ -107,6 +110,26 @@ public class SbomerJsonParser extends JsonParser {
                 .build();
 
         return factory.getSchema(schemaNode, config);
+    }
+
+    public static void load() {
+        final String previousConnectTimeout = System.setProperty(CONNECT_TIMEOUT_PROPERTY, CONNECT_TIMEOUT_MS);
+
+        try {
+            spdxSchema(new ObjectMapper());
+        } catch (Exception e) {
+            throw new IllegalStateException("Unable to load the SPDX license list for CycloneDX validation", e);
+        } finally {
+            if (previousConnectTimeout != null) {
+                System.setProperty(CONNECT_TIMEOUT_PROPERTY, previousConnectTimeout);
+            } else {
+                System.clearProperty(CONNECT_TIMEOUT_PROPERTY);
+            }
+        }
+
+        log.info(
+                "Loaded SPDX license list version {} for CycloneDX validation",
+                ListedLicenses.getListedLicenses().getLicenseListVersion());
     }
 
     private static synchronized String spdxSchema(final ObjectMapper mapper) throws IOException {
