@@ -52,6 +52,9 @@ quarkus:
     "sbomer":
       url: "https://dummy"
 
+  scheduler:
+    enabled: false
+
   operator-sdk:
     start-operator: false
 
