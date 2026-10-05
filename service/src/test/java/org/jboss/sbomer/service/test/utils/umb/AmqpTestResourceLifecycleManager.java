@@ -27,9 +27,12 @@ public class AmqpTestResourceLifecycleManager implements QuarkusTestResourceLife
     @Override
     public Map<String, String> start() {
         Map<String, String> env = new HashMap<>();
+        // Switch all AMQP messaging channels to in-memory for tests
         Map<String, String> buildsProps = InMemoryConnector.switchIncomingChannelsToInMemory("builds");
+        Map<String, String> errataProps = InMemoryConnector.switchIncomingChannelsToInMemory("errata");
         Map<String, String> finishedProps = InMemoryConnector.switchOutgoingChannelsToInMemory("finished");
         env.putAll(buildsProps);
+        env.putAll(errataProps);
         env.putAll(finishedProps);
         env.putAll(
                 Map.of(
