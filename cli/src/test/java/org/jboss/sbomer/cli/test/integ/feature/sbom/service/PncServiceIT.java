@@ -35,6 +35,7 @@ import org.cyclonedx.model.Evidence;
 import org.cyclonedx.model.ExternalReference;
 import org.cyclonedx.model.License;
 import org.cyclonedx.model.LicenseChoice;
+import org.cyclonedx.model.LicenseItem;
 import org.cyclonedx.model.Property;
 import org.jboss.pnc.api.deliverablesanalyzer.dto.LicenseInfo;
 import org.jboss.pnc.dto.Artifact;
@@ -181,9 +182,9 @@ class PncServiceIT {
         Component component = SbomUtils
                 .createComponent(analyzedArtifact, Component.Scope.REQUIRED, Component.Type.FILE);
         LicenseChoice licenseChoice = component.getLicenses();
-        List<License> licences = licenseChoice.getLicenses();
-        assertEquals(1, licences.size());
-        License license = licences.get(0);
+        List<LicenseItem> licenseItems = licenseChoice.getItems();
+        assertEquals(1, licenseItems.size());
+        License license = licenseItems.get(0).getLicense();
         assertEquals(expectedSpdxLicenseId, license.getId());
         assertNull(license.getUrl());
         List<ExternalReference> externalReferences = component.getExternalReferences();
@@ -196,9 +197,9 @@ class PncServiceIT {
         assertNotNull(evidence);
         LicenseChoice evidenceLicenseChoice = evidence.getLicenses();
         assertNotNull(evidenceLicenseChoice);
-        List<License> evidenceLicenses = evidenceLicenseChoice.getLicenses();
-        assertEquals(1, evidenceLicenses.size());
-        License evidenceLicense = evidenceLicenses.get(0);
+        List<LicenseItem> evidenceLicenseItems = evidenceLicenseChoice.getItems();
+        assertEquals(1, evidenceLicenseItems.size());
+        License evidenceLicense = evidenceLicenseItems.get(0).getLicense();
         assertEquals(expectedSpdxLicenseId, evidenceLicense.getId());
         assertEquals(expectedUrl, evidenceLicense.getUrl());
         List<Property> evidenceProperties = evidenceLicense.getProperties();

@@ -462,7 +462,7 @@ public class SyftImageAdjuster extends AbstractAdjuster {
                     .withQualifier("tag", versionOpt.get().getValue() + "-" + releaseOpt.get().getValue())
                     .build();
             log.debug("Generated purl: '{}'", purl);
-            mainComponent.setPurl(purl);
+            mainComponent.setPurl(purl.toString());
         } catch (MalformedPackageURLException e) {
             throw new ApplicationException("Cannot generate purl for container image", e);
         }

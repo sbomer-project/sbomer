@@ -56,7 +56,7 @@ public class CycloneDxBomValidator implements ConstraintValidator<CycloneDxBom, 
             return false;
         }
 
-        setPayload(context, exceptions.stream().map(cv -> "sbom" + cv.getMessage().substring(1)).toList());
+        setPayload(context, exceptions.stream().map(ParseException::getMessage).toList());
 
         return false;
     }
