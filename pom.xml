@@ -61,7 +61,7 @@
     <version.quarkus-platform>3.20.3</version.quarkus-platform>
     <version.quarkus-operator-sdk>7.1.4</version.quarkus-operator-sdk>
 
-    <version.cyclonedx>9.1.0-patch</version.cyclonedx>
+    <version.cyclonedx>13.4.0</version.cyclonedx>
     <version.lombok>1.18.42</version.lombok>
     <version.pnc>3.2.9</version.pnc>
     <version.pnc-api>3.2.4</version.pnc-api>
@@ -78,6 +78,7 @@
     <version.quarkus-test-artemis>3.1.2</version.quarkus-test-artemis>
     <version.build-finder>2.6.7</version.build-finder>
     <version.spdx>2.0.5</version.spdx>
+    <version.packageurl>1.5.0</version.packageurl>
     <version.mapstruct>1.6.3</version.mapstruct>
     <version.jandex>3.4.0</version.jandex>
     <version.tsid>5.2.6</version.tsid>
@@ -156,24 +157,14 @@
         <artifactId>java-spdx-library</artifactId>
         <version>${version.spdx}</version>
       </dependency>
+      <dependency>
+        <groupId>com.github.package-url</groupId>
+        <artifactId>packageurl-java</artifactId>
+        <version>${version.packageurl}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
-  <repositories>
-    <repository>
-      <id>cyclonedx-java-patch-repo</id>
-      <name>Patches GitHub Repository</name>
-      <url>https://github.com/project-ncl/patches-repository/raw/cyclonedx-core-java-9.1.0-patch/repository/cyclonedx-java/</url>
-      <releases>
-        <enabled>true</enabled>
-        <updatePolicy>never</updatePolicy>
-      </releases>
-      <snapshots>
-        <enabled>false</enabled>
-        <updatePolicy>never</updatePolicy>
-      </snapshots>
-    </repository>
-  </repositories>
   <build>
     <pluginManagement>
       <plugins>

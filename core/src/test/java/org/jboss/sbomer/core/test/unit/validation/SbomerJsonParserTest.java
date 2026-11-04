@@ -28,7 +28,6 @@ import org.cyclonedx.model.Bom;
 import org.cyclonedx.model.Component;
 import org.cyclonedx.model.License;
 import org.cyclonedx.model.LicenseChoice;
-import org.cyclonedx.parsers.JsonParser;
 import org.jboss.sbomer.core.features.sbom.utils.SbomUtils;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -39,10 +38,8 @@ import com.fasterxml.jackson.databind.JsonNode;
  * Guards the SPDX license override installed by
  * {@link org.jboss.sbomer.core.features.sbom.validation.SbomerJsonParser}.
  * <p>
- * The {@code cyclonedx-core-java} jar bundles an older SPDX snapshot that is missing newer identifiers (e.g.
- * {@code Artistic-dist}). The override remaps the SPDX {@code $ref} to a schema generated at runtime from the
- * {@code java-spdx-library} license list. If that override is reverted, or a future cyclonedx bump reinstates the stale
- * list, the first test below starts failing.
+ * The override remaps the SPDX {@code $ref} to a schema generated at runtime from the union of the
+ * {@code java-spdx-library} license list and the list bundled in the {@code cyclonedx-core-java} jar.
  */
 class SbomerJsonParserTest {
 
@@ -57,7 +54,7 @@ class SbomerJsonParserTest {
         License license = new License();
         license.setId(licenseId);
         LicenseChoice licenseChoice = new LicenseChoice();
-        licenseChoice.setLicenses(List.of(license));
+        licenseChoice.addLicense(license);
         component.setLicenses(licenseChoice);
 
         bom.setComponents(List.of(component));
@@ -70,14 +67,8 @@ class SbomerJsonParserTest {
         return SbomUtils.validate(bomWithLicense(licenseId));
     }
 
-    /** Validation through the plain upstream JsonParser (stale bundled SPDX list, no override). */
-    private static List<ParseException> validateWithPlainParser(String licenseId) throws IOException {
-        JsonNode jsonNode = bomWithLicense(licenseId);
-        return new JsonParser().validate(jsonNode.toString().getBytes(), SbomUtils.schemaVersion());
-    }
-
     @Test
-    @DisplayName("Accepts Artistic-dist, which is absent from the stale bundled SPDX snapshot")
+    @DisplayName("Accepts Artistic-dist, which is absent from SPDX license lists before 3.27.0")
     void shouldAcceptArtisticDistLicense() throws IOException {
         List<ParseException> errors = validateWithLicense("Artistic-dist");
 
@@ -104,16 +95,5 @@ class SbomerJsonParserTest {
         List<ParseException> errors = validateWithLicense("This-Is-Not-A-Real-SPDX-Id");
 
         assertFalse(errors.isEmpty(), "Expected a validation error for a bogus license id, got none");
-    }
-
-    @Test
-    @DisplayName("The plain upstream JsonParser still rejects Artistic-dist — demonstrates the override is required")
-    void plainParserStillRejectsArtisticDist() throws IOException {
-        List<ParseException> errors = validateWithPlainParser("Artistic-dist");
-
-        assertFalse(
-                errors.isEmpty(),
-                "Expected the plain JsonParser to reject Artistic-dist (stale bundled SPDX list). If this now passes, "
-                        + "the bundled cyclonedx-core-java SPDX snapshot includes it and the override may be redundant.");
     }
 }

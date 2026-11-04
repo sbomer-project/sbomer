@@ -55,6 +55,7 @@ import org.cyclonedx.model.Hash;
 import org.cyclonedx.model.Hash.Algorithm;
 import org.cyclonedx.model.License;
 import org.cyclonedx.model.LicenseChoice;
+import org.cyclonedx.model.LicenseItem;
 import org.cyclonedx.model.Metadata;
 import org.cyclonedx.model.OrganizationalEntity;
 import org.cyclonedx.model.Pedigree;
@@ -62,6 +63,7 @@ import org.cyclonedx.model.Property;
 import org.cyclonedx.model.Service;
 import org.cyclonedx.model.component.evidence.Identity;
 import org.cyclonedx.model.component.evidence.Identity.Field;
+import org.cyclonedx.model.license.Acknowledgement;
 import org.cyclonedx.model.metadata.ToolInformation;
 import org.jboss.pnc.api.deliverablesanalyzer.dto.LicenseInfo;
 import org.jboss.pnc.dto.Artifact;
@@ -107,7 +109,9 @@ class SbomUtilsTest {
             List<Component> components = bom.getComponents();
             assertEquals(39, components.size());
 
-            assertEquals("Apache-2.0", bom.getMetadata().getComponent().getLicenses().getLicenses().get(0).getId());
+            assertEquals(
+                    "Apache-2.0",
+                    bom.getMetadata().getComponent().getLicenses().getItems().get(0).getLicense().getId());
         }
 
         @Test
@@ -117,7 +121,9 @@ class SbomUtilsTest {
             assertNotNull(bom);
             assertEquals(39, bom.getComponents().size());
 
-            assertEquals("Apache-2.0", bom.getMetadata().getComponent().getLicenses().getLicenses().get(0).getId());
+            assertEquals(
+                    "Apache-2.0",
+                    bom.getMetadata().getComponent().getLicenses().getItems().get(0).getLicense().getId());
         }
 
         @Test
@@ -638,13 +644,13 @@ class SbomUtilsTest {
         assertEquals("SBOMer", service.getName());
         assertEquals("dev", service.getVersion());
         LicenseChoice licenseChoice = service.getLicenses();
-        List<License> licenses = licenseChoice.getLicenses();
-        assertEquals(1, licenses.size());
-        License license = licenses.get(0);
+        List<LicenseItem> licenseItems = licenseChoice.getItems();
+        assertEquals(1, licenseItems.size());
+        License license = licenseItems.get(0).getLicense();
         assertNull(license.getName());
         assertEquals("Apache-2.0", license.getId());
         assertEquals("https://www.apache.org/licenses/LICENSE-2.0.html", license.getUrl());
-        assertEquals("declared", license.getAcknowledgement());
+        assertEquals(Acknowledgement.DECLARED, license.getAcknowledgement());
         OrganizationalEntity provider = service.getProvider();
         assertNotNull(provider);
         assertEquals("Red Hat", provider.getName());
@@ -1212,7 +1218,7 @@ class SbomUtilsTest {
         License license = new License();
         license.setId("Apache-2.0");
         LicenseChoice licenseChoice = new LicenseChoice();
-        licenseChoice.setLicenses(List.of(license));
+        licenseChoice.addLicense(license);
         Evidence evidence = new Evidence();
         evidence.setLicenses(licenseChoice);
         String purl = "pkg:maven/org.apache.logging.log4j/log4j@2.19.0.redhat-00001?type=pom";
@@ -1231,9 +1237,9 @@ class SbomUtilsTest {
         assertEquals(purl, identities.get(0).getConcludedValue());
         LicenseChoice componentEvidenceLicenses = componentEvidence.getLicenses();
         assertNotNull(componentEvidenceLicenses);
-        List<License> licenses = componentEvidenceLicenses.getLicenses();
-        assertEquals(1, licenses.size());
-        assertEquals("Apache-2.0", licenses.get(0).getId());
+        List<LicenseItem> licenseItems = componentEvidenceLicenses.getItems();
+        assertEquals(1, licenseItems.size());
+        assertEquals("Apache-2.0", licenseItems.get(0).getLicense().getId());
     }
 
     @Test
