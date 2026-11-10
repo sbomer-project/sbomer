@@ -84,6 +84,8 @@ public class Constants {
     public static final String PNC_BUILD_SYSTEM = "PNC";
     public static final String BREW_BUILD_SYSTEM = "BREW";
 
+    public static final String DEFAULT_CBOM_TIMEOUT = "1h";
+
     public static final String DISTRIBUTION = "Red Hat distribution";
     public static final String PUBLISHER = "Red Hat";
     public static final String SUPPLIER_NAME = "Red Hat";

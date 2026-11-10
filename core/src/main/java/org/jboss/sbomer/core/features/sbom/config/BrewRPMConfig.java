@@ -68,6 +68,16 @@ public class BrewRPMConfig extends Config {
      */
     String brewBuildNVR;
 
+    /**
+     * Enable CBOM (Cryptographic Bill of Materials) generation.
+     */
+    Boolean cbom;
+
+    /**
+     * Timeout for CBOM scan (e.g., "4h", "12h").
+     */
+    String cbomTimeout;
+
     @JsonIgnore
     @Override
     public boolean isEmpty() {

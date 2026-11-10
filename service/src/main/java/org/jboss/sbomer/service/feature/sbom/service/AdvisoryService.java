@@ -50,6 +50,7 @@ import org.jboss.sbomer.core.config.request.RequestConfig;
 import org.jboss.sbomer.core.dto.v1beta1.V1Beta1RequestRecord;
 import org.jboss.sbomer.core.errors.ApplicationException;
 import org.jboss.sbomer.core.errors.ClientException;
+import org.jboss.sbomer.core.features.sbom.Constants;
 import org.jboss.sbomer.core.features.sbom.config.BrewRPMConfig;
 import org.jboss.sbomer.core.features.sbom.config.DeliverableAnalysisConfig;
 import org.jboss.sbomer.core.features.sbom.config.OperationConfig;
@@ -738,12 +739,18 @@ public class AdvisoryService {
                     return; // Already processed
                 }
 
-                BrewRPMConfig config = BrewRPMConfig.builder()
+                BrewRPMConfig.BrewRPMConfigBuilder configBuilder = BrewRPMConfig.builder()
                         .withAdvisoryId(details.getId())
                         .withAdvisory(details.getFulladvisory())
                         .withBrewBuildId(item.getId())
-                        .withBrewBuildNVR(item.getNvr())
-                        .build();
+                        .withBrewBuildNVR(item.getNvr());
+
+                // Add CBOM parameters if feature flag is enabled
+                if (featureFlags.brewRpmCbomEnabled()) {
+                    configBuilder.withCbom(true).withCbomTimeout(Constants.DEFAULT_CBOM_TIMEOUT);
+                }
+
+                BrewRPMConfig config = configBuilder.build();
 
                 log.debug("Creating GenerationRequest Kubernetes resource...");
 

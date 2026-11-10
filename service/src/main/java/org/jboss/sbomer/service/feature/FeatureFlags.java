@@ -74,6 +74,9 @@ public class FeatureFlags implements UnleashSubscriber {
     public static final String TOGGLE_SYFT_MANIFEST_OPT = "syft-manifest-opt";
     public static final String TOGGLE_SYFT_SOURCES_RETENTION = "syft-sources-retention";
 
+    // Brew RPM
+    public static final String TOGGLE_BREW_RPM_CBOM = "brew-rpm-cbom";
+
     // Generic PURL version guessing
     public static final String TOGGLE_GENERIC_COMPONENT_PURL_VERSION_REGEX = "generic-component-purl-version-regex";
 
@@ -135,6 +138,9 @@ public class FeatureFlags implements UnleashSubscriber {
 
     @ConfigProperty(name = "SBOMER_FEATURE_SYFT_SOURCES_RETENTION_ENABLED", defaultValue = "false")
     boolean syftSourcesRetention;
+
+    @ConfigProperty(name = "SBOMER_FEATURE_BREW_RPM_CBOM_ENABLED", defaultValue = "false")
+    boolean brewRpmCbom;
 
     @ConfigProperty(name = "SBOMER_FEATURE_GENERIC_COMPONENT_PURL_VERSION_REGEX_ENABLED", defaultValue = "false")
     boolean genericComponentPurlVersionRegexEnabled;
@@ -287,6 +293,17 @@ public class FeatureFlags implements UnleashSubscriber {
     }
 
     /**
+     * Returns {@code true} if CBOM (Cryptographic Bill of Materials) generation is enabled for Brew RPM manifests. When
+     * enabled, koji gen-rpm-manifest will run crypto-finder to detect cryptographic assets and include them as
+     * cryptographic-asset components in the SBOM.
+     *
+     * @return {@code true} if CBOM generation is enabled, {@code false} otherwise
+     */
+    public boolean brewRpmCbomEnabled() {
+        return unleash.isEnabled(TOGGLE_BREW_RPM_CBOM, brewRpmCbom);
+    }
+
+    /**
      * Returns {@code true} if generic component PURL version regex extraction is enabled.
      *
      * @return {@code true} if generic component PURL version regex extraction is enabled, {@code false} otherwise
@@ -333,6 +350,7 @@ public class FeatureFlags implements UnleashSubscriber {
                 TOGGLE_TEXTONLY_ERRATA_RELEASE_MANIFEST_GENERATION,
                 TOGGLE_SYFT_MANIFEST_OPT,
                 TOGGLE_SYFT_SOURCES_RETENTION,
+                TOGGLE_BREW_RPM_CBOM,
                 TOGGLE_GENERIC_COMPONENT_PURL_VERSION_REGEX)) {
             FeatureToggle toggle = toggleResponse.getToggleCollection().getToggle(toggleName);
             Boolean previousValue = toggleValues.put(toggleName, toggle.isEnabled());

@@ -58,6 +58,8 @@ public class TaskRunBrewRPMGenerateDependentResource
     public static final String ANNOTATION_BUILD_NVR = "sbomer.jboss.org/brew-build-nvr";
 
     public static final String PARAM_BREW_BUILD_ID = "build-id";
+    public static final String PARAM_CBOM = "cbom";
+    public static final String PARAM_CBOM_TIMEOUT = "cbom-timeout";
 
     public static final String TASK_SUFFIX = "-generator-brew-rpm";
     public static final String SA_SUFFIX = "-sa";
@@ -113,6 +115,29 @@ public class TaskRunBrewRPMGenerateDependentResource
                 ANNOTATION_BUILD_NVR,
                 config.getBrewBuildNVR());
 
+        // Build params list
+        var params = java.util.List.of(
+                new ParamBuilder().withName(PARAM_BREW_BUILD_ID)
+                        .withValue(new ParamValue(String.valueOf(config.getBrewBuildId())))
+                        .build());
+
+        // Add CBOM params if specified
+        java.util.List<io.fabric8.tekton.v1beta1.Param> allParams = new java.util.ArrayList<>(params);
+
+        if (config.getCbom() != null) {
+            allParams.add(
+                    new ParamBuilder().withName(PARAM_CBOM)
+                            .withValue(new ParamValue(String.valueOf(config.getCbom())))
+                            .build());
+        }
+
+        if (config.getCbomTimeout() != null && !config.getCbomTimeout().isEmpty()) {
+            allParams.add(
+                    new ParamBuilder().withName(PARAM_CBOM_TIMEOUT)
+                            .withValue(new ParamValue(config.getCbomTimeout()))
+                            .build());
+        }
+
         return new TaskRunBuilder().withNewMetadata()
                 .withNamespace(generationRequest.getMetadata().getNamespace())
                 .withAnnotations(annotations)
@@ -128,10 +153,7 @@ public class TaskRunBrewRPMGenerateDependentResource
                 .withNewSpec()
                 .withServiceAccountName(release + SA_SUFFIX)
                 .withTimeout(timeout)
-                .withParams(
-                        new ParamBuilder().withName(PARAM_BREW_BUILD_ID)
-                                .withValue(new ParamValue(String.valueOf(config.getBrewBuildId())))
-                                .build())
+                .withParams(allParams)
                 .withTaskRef(new TaskRefBuilder().withName(release + TASK_SUFFIX).build())
 
                 .withWorkspaces(
