@@ -64,10 +64,10 @@ class CycloneDxBomValidatorTest {
 
         verify(context, times(1)).addExpressionVariable(
                 "errors",
-                "sbom.components[2].pedigree.commits[1].url: does not match the iri-reference pattern must be a valid RFC 3987 IRI-reference");
+                "/components/2/pedigree/commits/1/url: does not match the iri-reference pattern must be a valid RFC 3987 IRI-reference");
         verify(context, times(1)).withDynamicPayload(
                 List.of(
-                        "sbom.components[2].pedigree.commits[1].url: does not match the iri-reference pattern must be a valid RFC 3987 IRI-reference"));
+                        "/components/2/pedigree/commits/1/url: does not match the iri-reference pattern must be a valid RFC 3987 IRI-reference"));
 
     }
 }

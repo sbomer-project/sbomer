@@ -61,6 +61,7 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -77,6 +78,7 @@ import org.cyclonedx.generators.BomGeneratorFactory;
 import org.cyclonedx.generators.json.BomJsonGenerator;
 import org.cyclonedx.model.Ancestors;
 import org.cyclonedx.model.Bom;
+import org.cyclonedx.model.BomReference;
 import org.cyclonedx.model.Component;
 import org.cyclonedx.model.Component.Scope;
 import org.cyclonedx.model.Component.Type;
@@ -95,6 +97,7 @@ import org.cyclonedx.model.Service;
 import org.cyclonedx.model.Tool;
 import org.cyclonedx.model.component.evidence.Identity;
 import org.cyclonedx.model.component.evidence.Identity.Field;
+import org.cyclonedx.model.license.Acknowledgement;
 import org.cyclonedx.model.license.Expression;
 import org.cyclonedx.model.metadata.ToolInformation;
 import org.cyclonedx.parsers.JsonParser;
@@ -128,10 +131,6 @@ public class SbomUtils {
     private static final Logger log = LoggerFactory.getLogger(SbomUtils.class);
 
     public static final String PROTOCOL = "https://";
-
-    public static final String COMPONENT_LICENSE_ACKNOWLEDGEMENT = "concluded";
-
-    public static final String EVIDENCE_LICENSE_ACKNOWLEDGEMENT = "declared";
 
     private static final String PURL_QUALIFIER_REPOSITORY_URL = "repository_url";
 
@@ -488,17 +487,17 @@ public class SbomUtils {
             Expression expression = new Expression();
             String value = SpdxLicenseUtils.toExpression(spdxLicenseIds);
             expression.setValue(value);
-            expression.setAcknowledgement(EVIDENCE_LICENSE_ACKNOWLEDGEMENT);
-            licenseChoice.setExpression(expression);
+            expression.setAcknowledgement(Acknowledgement.DECLARED);
+            licenseChoice.addExpression(expression);
             evidence.setLicenses(licenseChoice);
             component.setEvidence(evidence);
             return;
         }
 
-        licenseChoice.setLicenses(licenseInfos.stream().map(licenseInfo -> {
+        licenseInfos.stream().map(licenseInfo -> {
             License license = new License();
             license.setId(licenseInfo.getSpdxLicenseId());
-            license.setAcknowledgement(EVIDENCE_LICENSE_ACKNOWLEDGEMENT);
+            license.setAcknowledgement(Acknowledgement.DECLARED);
             String sourceUrl = licenseInfo.getSourceUrl();
 
             if (!StringUtils.isBlank(sourceUrl)) {
@@ -521,7 +520,7 @@ public class SbomUtils {
             }
 
             return license;
-        }).toList());
+        }).forEach(licenseChoice::addLicense);
         evidence.setLicenses(licenseChoice);
         component.setEvidence(evidence);
     }
@@ -565,15 +564,15 @@ public class SbomUtils {
             Expression expression = new Expression();
             String value = SpdxLicenseUtils.toExpression(spdxLicenseIds);
             expression.setValue(value);
-            expression.setAcknowledgement(COMPONENT_LICENSE_ACKNOWLEDGEMENT);
-            licenseChoice.setExpression(expression);
+            expression.setAcknowledgement(Acknowledgement.CONCLUDED);
+            licenseChoice.addExpression(expression);
         } else {
-            licenseChoice.setLicenses(spdxLicenseIds.stream().map(spdxLicenseId -> {
+            spdxLicenseIds.stream().map(spdxLicenseId -> {
                 License license = new License();
                 license.setId(spdxLicenseId);
-                license.setAcknowledgement(COMPONENT_LICENSE_ACKNOWLEDGEMENT);
+                license.setAcknowledgement(Acknowledgement.CONCLUDED);
                 return license;
-            }).toList());
+            }).forEach(licenseChoice::addLicense);
         }
 
         component.setLicenses(licenseChoice);
@@ -625,7 +624,7 @@ public class SbomUtils {
         LicenseChoice licenseChoice = new LicenseChoice();
         License license = new License();
         license.setId(SBOMER_LICENSE_ID);
-        licenseChoice.setLicenses(List.of(license));
+        licenseChoice.addLicense(license);
         metadata.setLicenses(licenseChoice);
 
         Property vcs = new Property();
@@ -767,11 +766,11 @@ public class SbomUtils {
             dependency.setDependencies(subDependencies);
         }
 
-        // Recursively update provided dependencies
+        // Update provided refs
         if (dependency.getProvides() != null) {
-            List<Dependency> subProvides = new ArrayList<>(dependency.getProvides().size());
-            for (Dependency subProvide : dependency.getProvides()) {
-                Dependency updatedSubProvide = updateDependencyRef(subProvide, oldRef, newRef);
+            List<BomReference> subProvides = new ArrayList<>(dependency.getProvides().size());
+            for (BomReference subProvide : dependency.getProvides()) {
+                BomReference updatedSubProvide = updateProvideRef(subProvide, oldRef::equals, newRef);
                 subProvides.add(updatedSubProvide);
             }
             dependency.setProvides(subProvides);
@@ -801,16 +800,20 @@ public class SbomUtils {
             dependency.setDependencies(subDependencies);
         }
 
-        // Recursively update provided dependencies
+        // Update provided refs
         if (dependency.getProvides() != null) {
-            List<Dependency> subProvides = new ArrayList<>(dependency.getProvides().size());
-            for (Dependency subProvide : dependency.getProvides()) {
-                Dependency updatedSubProvide = updateDependencyRef(subProvide, pattern, newRef);
+            List<BomReference> subProvides = new ArrayList<>(dependency.getProvides().size());
+            for (BomReference subProvide : dependency.getProvides()) {
+                BomReference updatedSubProvide = updateProvideRef(subProvide, pattern.asMatchPredicate(), newRef);
                 subProvides.add(updatedSubProvide);
             }
             dependency.setProvides(subProvides);
         }
         return dependency;
+    }
+
+    private static BomReference updateProvideRef(BomReference provide, Predicate<String> refMatches, String newRef) {
+        return refMatches.test(provide.getRef()) ? new BomReference(newRef) : provide;
     }
 
     public static ToolInformation createToolInformation(String version) {
@@ -827,9 +830,9 @@ public class SbomUtils {
         LicenseChoice licenseChoice = new LicenseChoice();
         License license = new License();
         license.setId(SBOMER_LICENSE_ID);
-        license.setAcknowledgement(EVIDENCE_LICENSE_ACKNOWLEDGEMENT);
+        license.setAcknowledgement(Acknowledgement.DECLARED);
         license.setUrl(SBOMER_LICENSE_URL);
-        licenseChoice.setLicenses(List.of(license));
+        licenseChoice.addLicense(license);
         service.setLicenses(licenseChoice);
         ExternalReference upstreamSCM = new ExternalReference();
         upstreamSCM.setType(org.cyclonedx.model.ExternalReference.Type.VCS);
@@ -1804,11 +1807,11 @@ public class SbomUtils {
                     adjustEmptySubDependencies(existingDependency);
                     addMissingDependencies(existingDependency.getDependencies(), subDependencies);
                 }
-                List<Dependency> subProvides = dependency.getProvides();
+                List<BomReference> subProvides = dependency.getProvides();
                 // Pointless proceeding unless there are sub-provides from source manifest
                 if (isNotEmpty(subProvides)) {
                     adjustEmptySubProvides(existingDependency);
-                    addMissingDependencies(existingDependency.getProvides(), subProvides);
+                    addMissingProvides(existingDependency.getProvides(), subProvides);
                 }
             } else {
                 log.debug("Adding missing dependency (with ref: '{}')", ref);
@@ -1816,6 +1819,16 @@ public class SbomUtils {
             }
         }
         targetDependencies.addAll(mergedDependencies.values());
+    }
+
+    private static void addMissingProvides(List<BomReference> targetProvides, List<BomReference> sourceProvides) {
+        Set<String> existingRefs = targetProvides.stream().map(BomReference::getRef).collect(Collectors.toSet());
+        for (BomReference provide : sourceProvides) {
+            if (existingRefs.add(provide.getRef())) {
+                log.debug("Adding missing provide (with ref: '{}')", provide.getRef());
+                targetProvides.add(provide);
+            }
+        }
     }
 
     public static void addMissingComponentsAndDependencies(Bom targetBom, Bom sourceBom) {

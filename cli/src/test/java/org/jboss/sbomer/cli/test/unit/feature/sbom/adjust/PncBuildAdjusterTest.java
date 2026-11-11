@@ -10,7 +10,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.cyclonedx.model.Bom;
-import org.cyclonedx.model.Dependency;
+import org.cyclonedx.model.BomReference;
 import org.jboss.sbomer.cli.feature.sbom.adjuster.PncBuildAdjuster;
 import org.jboss.sbomer.core.features.sbom.Constants;
 import org.jboss.sbomer.core.features.sbom.utils.SbomUtils;
@@ -44,7 +44,7 @@ class PncBuildAdjusterTest {
         Set<String> providedRefs = rpmBom.getDependencies()
                 .stream()
                 .flatMap(dependency -> dependency.getProvides().stream())
-                .map(Dependency::getRef)
+                .map(BomReference::getRef)
                 .collect(Collectors.toSet());
 
         // Convert expectedRefs to a Set for comparison
