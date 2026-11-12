@@ -718,6 +718,7 @@ public class AdvisoryService {
 
         Set<String> processedNvrs = new HashSet<>();
         Collection<SbomGenerationRequest> sbomRequests = new ArrayList<>();
+        boolean cbomEnabled = featureFlags.brewRpmCbomEnabled();
 
         buildDetails.forEach((pVersion, items) -> {
             String productName = product.getData().getAttributes().getName();
@@ -745,8 +746,7 @@ public class AdvisoryService {
                         .withBrewBuildId(item.getId())
                         .withBrewBuildNVR(item.getNvr());
 
-                // Add CBOM parameters if feature flag is enabled
-                if (featureFlags.brewRpmCbomEnabled()) {
+                if (cbomEnabled) {
                     configBuilder.withCbom(true).withCbomTimeout(Constants.DEFAULT_CBOM_TIMEOUT);
                 }
 
