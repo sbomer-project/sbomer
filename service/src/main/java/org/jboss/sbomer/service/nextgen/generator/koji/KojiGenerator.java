@@ -339,13 +339,13 @@ public class KojiGenerator extends AbstractTektonController {
                             new ParamBuilder().withName(PARAM_CBOM)
                                     .withNewValue(String.valueOf(options.cbom()))
                                     .build());
-                }
 
-                if (options.cbomTimeout() != null && !options.cbomTimeout().isEmpty()) {
-                    params.add(
-                            new ParamBuilder().withName(PARAM_CBOM_TIMEOUT)
-                                    .withNewValue(options.cbomTimeout())
-                                    .build());
+                    if (options.cbomTimeout() != null && !options.cbomTimeout().isBlank()) {
+                        params.add(
+                                new ParamBuilder().withName(PARAM_CBOM_TIMEOUT)
+                                        .withNewValue(options.cbomTimeout())
+                                        .build());
+                    }
                 }
                 break;
 
