@@ -88,6 +88,7 @@
 
     <!-- Sonar -->
     <sonar.java.source>17</sonar.java.source>
+    <sonar.scanner.jreProvisioningTool>auto</sonar.scanner.jreProvisioningTool>
     <sonar.coverage.jacoco.xmlReportPaths>**/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
     <sonar.cpd.exclusions>**/import.sql</sonar.cpd.exclusions>
     <sonar.issue.ignore.multicriteria>i1</sonar.issue.ignore.multicriteria>
