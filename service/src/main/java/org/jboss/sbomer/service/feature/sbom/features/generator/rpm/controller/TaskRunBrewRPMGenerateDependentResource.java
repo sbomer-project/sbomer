@@ -18,6 +18,8 @@
 package org.jboss.sbomer.service.feature.sbom.features.generator.rpm.controller;
 
 import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -33,6 +35,7 @@ import io.fabric8.kubernetes.api.model.Duration;
 import io.fabric8.kubernetes.api.model.OwnerReferenceBuilder;
 import io.fabric8.kubernetes.api.model.PersistentVolumeClaimVolumeSourceBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.tekton.v1beta1.Param;
 import io.fabric8.tekton.v1beta1.ParamBuilder;
 import io.fabric8.tekton.v1beta1.ParamValue;
 import io.fabric8.tekton.v1beta1.TaskRefBuilder;
@@ -58,6 +61,8 @@ public class TaskRunBrewRPMGenerateDependentResource
     public static final String ANNOTATION_BUILD_NVR = "sbomer.jboss.org/brew-build-nvr";
 
     public static final String PARAM_BREW_BUILD_ID = "build-id";
+    public static final String PARAM_CBOM = "cbom";
+    public static final String PARAM_CBOM_TIMEOUT = "cbom-timeout";
 
     public static final String TASK_SUFFIX = "-generator-brew-rpm";
     public static final String SA_SUFFIX = "-sa";
@@ -113,6 +118,28 @@ public class TaskRunBrewRPMGenerateDependentResource
                 ANNOTATION_BUILD_NVR,
                 config.getBrewBuildNVR());
 
+        // Build params list
+        List<Param> allParams = new ArrayList<>();
+        allParams.add(
+                new ParamBuilder().withName(PARAM_BREW_BUILD_ID)
+                        .withValue(new ParamValue(String.valueOf(config.getBrewBuildId())))
+                        .build());
+
+        // Add CBOM params if specified
+        if (config.getCbom() != null) {
+            allParams.add(
+                    new ParamBuilder().withName(PARAM_CBOM)
+                            .withValue(new ParamValue(String.valueOf(config.getCbom())))
+                            .build());
+
+            if (config.getCbomTimeout() != null && !config.getCbomTimeout().isBlank()) {
+                allParams.add(
+                        new ParamBuilder().withName(PARAM_CBOM_TIMEOUT)
+                                .withValue(new ParamValue(config.getCbomTimeout()))
+                                .build());
+            }
+        }
+
         return new TaskRunBuilder().withNewMetadata()
                 .withNamespace(generationRequest.getMetadata().getNamespace())
                 .withAnnotations(annotations)
@@ -128,10 +155,7 @@ public class TaskRunBrewRPMGenerateDependentResource
                 .withNewSpec()
                 .withServiceAccountName(release + SA_SUFFIX)
                 .withTimeout(timeout)
-                .withParams(
-                        new ParamBuilder().withName(PARAM_BREW_BUILD_ID)
-                                .withValue(new ParamValue(String.valueOf(config.getBrewBuildId())))
-                                .build())
+                .withParams(allParams)
                 .withTaskRef(new TaskRefBuilder().withName(release + TASK_SUFFIX).build())
 
                 .withWorkspaces(

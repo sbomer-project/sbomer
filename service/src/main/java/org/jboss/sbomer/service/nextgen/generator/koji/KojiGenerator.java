@@ -70,6 +70,8 @@ import lombok.extern.slf4j.Slf4j;
 public class KojiGenerator extends AbstractTektonController {
 
     public static final String PARAM_BREW_BUILD_ID = "build-id";
+    public static final String PARAM_CBOM = "cbom";
+    public static final String PARAM_CBOM_TIMEOUT = "cbom-timeout";
 
     public static final String TASK_SUFFIX = "-generator-brew-rpm";
 
@@ -308,6 +310,7 @@ public class KojiGenerator extends AbstractTektonController {
         Map<String, String> labels = TektonUtilities.createBasicGenerationLabels(generation, getGeneratorName());
 
         GenerationRequest request = JacksonUtils.parse(GenerationRequest.class, generation.request());
+        KojiBrewRpmOptions options = retrieveOptions(request);
 
         Duration timeout;
 
@@ -329,6 +332,21 @@ public class KojiGenerator extends AbstractTektonController {
                         new ParamBuilder().withName(PARAM_BREW_BUILD_ID)
                                 .withNewValue(request.target().identifier())
                                 .build());
+
+                // Add CBOM parameters if specified
+                if (options.cbom() != null) {
+                    params.add(
+                            new ParamBuilder().withName(PARAM_CBOM)
+                                    .withNewValue(String.valueOf(options.cbom()))
+                                    .build());
+
+                    if (options.cbomTimeout() != null && !options.cbomTimeout().isBlank()) {
+                        params.add(
+                                new ParamBuilder().withName(PARAM_CBOM_TIMEOUT)
+                                        .withNewValue(options.cbomTimeout())
+                                        .build());
+                    }
+                }
                 break;
 
             default:

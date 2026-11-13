@@ -26,6 +26,9 @@ import org.jboss.sbomer.service.nextgen.generator.GeneratorRetries;
  * @see GeneratorConfig
  * @param timeout The timeout after which the generation should be terminated.
  * @param retries Generator retry configuration.
+ * @param cbom Enable CBOM (Cryptographic Bill of Materials) generation. Default is false.
+ * @param cbomTimeout Timeout for CBOM scan. Accepts Go duration syntax (e.g., "30m", "1h", "4h"). Default is "1h". Must
+ *        be less than or equal to the Tekton TaskRun timeout (6h).
  */
-public record KojiBrewRpmOptions(String timeout, GeneratorRetries retries) {
+public record KojiBrewRpmOptions(String timeout, GeneratorRetries retries, Boolean cbom, String cbomTimeout) {
 }

@@ -36,8 +36,16 @@
       "brewBuildNVR": {
         "description": "Brew build NVR attached to the advisory",
         "type": "string"
+      },
+      "cbom": {
+        "description": "Enable CBOM (Cryptographic Bill of Materials) generation",
+        "type": "boolean"
+      },
+      "cbomTimeout": {
+        "description": "Timeout for CBOM scan (e.g., \"30m\", \"1h\", \"4h\")",
+        "type": "string"
       }
-    }, 
+    },
     "required": [
       "advisoryId", "brewBuildId"
     ],
